@@ -43,6 +43,7 @@ class CustomerView(QWidget):
         super().__init__()
         self.vm = CustomerViewModel()
         self.cache_customers = CacheService.get("customers")
+        self.displayed_customers = []
         self.worker = None
 
 
@@ -222,6 +223,7 @@ class CustomerView(QWidget):
         print(f"Customer load failed: {error_msg}")
 
     def populate_table(self, customers):
+        self.displayed_customers = customers
         self.table_customers.setRowCount(0)
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         for idx, cust in enumerate(customers):
@@ -307,7 +309,7 @@ class CustomerView(QWidget):
 
     def on_table_double_clicked(self, model_index):
         row = model_index.row()
-        customers = self.cache_customers
+        customers = self.displayed_customers
         if not customers or row >= len(customers):
             return
             
