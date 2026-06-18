@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QCompleter
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QIcon
 from src.viewmodels.installment_viewmodel import InstallmentViewModel
 from src.views.payment_dialog import PaymentDialog
 from src.views.reschedule_dialog import RescheduleDialog
@@ -128,6 +129,25 @@ class LedgerView(QWidget):
         lbl_sum_title.setObjectName("lbl_section_title")
         sum_layout.addWidget(lbl_sum_title)
 
+        import os
+        def create_metric_row(icon_name, label_widget):
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 2, 0, 2)
+            row_layout.setSpacing(10)
+            
+            icon_label = QLabel()
+            icon_label.setFixedSize(16, 16)
+            
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons", f"{icon_name}.svg")
+            if os.path.exists(icon_path):
+                icon_label.setPixmap(QIcon(icon_path).pixmap(16, 16))
+            
+            row_layout.addWidget(icon_label)
+            row_layout.addWidget(label_widget)
+            row_layout.addStretch()
+            return row_widget
+
         self.lbl_cust_name = QLabel("Customer: -")
         self.lbl_dev_name = QLabel("Device: -")
         self.lbl_selling_price = QLabel("Total Sale Price: Rs. 0.00")
@@ -138,15 +158,22 @@ class LedgerView(QWidget):
         self.lbl_remaining_months = QLabel("Unpaid Months: 0")
         self.lbl_next_due = QLabel("Next Due Date: -")
         
-        sum_layout.addWidget(self.lbl_cust_name)
-        sum_layout.addWidget(QFrame()) # spacer line
-        sum_layout.addWidget(self.lbl_dev_name)
-        sum_layout.addWidget(self.lbl_selling_price)
-        sum_layout.addWidget(self.lbl_down_payment)
-        sum_layout.addWidget(self.lbl_total_paid)
-        sum_layout.addWidget(self.lbl_outstanding)
-        sum_layout.addWidget(self.lbl_remaining_months)
-        sum_layout.addWidget(self.lbl_next_due)
+        sum_layout.addWidget(create_metric_row("user", self.lbl_cust_name))
+        
+        # Spacer line QFrame
+        spacer_line = QFrame()
+        spacer_line.setFrameShape(QFrame.Shape.HLine)
+        spacer_line.setFrameShadow(QFrame.Shadow.Sunken)
+        spacer_line.setStyleSheet("background-color: #E2E8F0; max-height: 1px; margin: 5px 0;")
+        sum_layout.addWidget(spacer_line)
+        
+        sum_layout.addWidget(create_metric_row("smartphone", self.lbl_dev_name))
+        sum_layout.addWidget(create_metric_row("tag", self.lbl_selling_price))
+        sum_layout.addWidget(create_metric_row("credit-card", self.lbl_down_payment))
+        sum_layout.addWidget(create_metric_row("coins", self.lbl_total_paid))
+        sum_layout.addWidget(create_metric_row("alert-circle", self.lbl_outstanding))
+        sum_layout.addWidget(create_metric_row("clock", self.lbl_remaining_months))
+        sum_layout.addWidget(create_metric_row("calendar", self.lbl_next_due))
         sum_layout.addStretch()
         
         left_col.addWidget(self.summary_box)
