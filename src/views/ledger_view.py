@@ -149,6 +149,8 @@ class LedgerView(QWidget):
             return row_widget
 
         self.lbl_cust_name = QLabel("Customer: -")
+        self.lbl_cust_father = QLabel("Father Name: -")
+        self.lbl_cust_address = QLabel("Address: -")
         self.lbl_dev_name = QLabel("Device: -")
         self.lbl_selling_price = QLabel("Total Sale Price: Rs. 0.00")
         self.lbl_down_payment = QLabel("Down Payment: Rs. 0.00")
@@ -159,6 +161,8 @@ class LedgerView(QWidget):
         self.lbl_next_due = QLabel("Next Due Date: -")
         
         sum_layout.addWidget(create_metric_row("user", self.lbl_cust_name))
+        sum_layout.addWidget(create_metric_row("users", self.lbl_cust_father))
+        sum_layout.addWidget(create_metric_row("map-pin", self.lbl_cust_address))
         
         # Spacer line QFrame
         spacer_line = QFrame()
@@ -293,6 +297,8 @@ class LedgerView(QWidget):
         if not sale_id:
             # Clear UI metrics
             self.lbl_cust_name.setText("Customer: -")
+            self.lbl_cust_father.setText("Father Name: -")
+            self.lbl_cust_address.setText("Address: -")
             self.lbl_dev_name.setText("Device: -")
             self.lbl_selling_price.setText("Total Sale Price: Rs. 0.00")
             self.lbl_down_payment.setText("Down Payment: Rs. 0.00")
@@ -337,6 +343,8 @@ class LedgerView(QWidget):
     def populate_ledger_details(self, data: dict):
         # Populate KPI metrics
         self.lbl_cust_name.setText(f"Customer: {data['customer']['name']}")
+        self.lbl_cust_father.setText(f"Father Name: {data['customer']['father_name']}")
+        self.lbl_cust_address.setText(f"Address: {data['customer']['address'] or '-'}")
         self.lbl_dev_name.setText(f"Device: {data['device']['brand']} {data['device']['model']}")
         
         self.lbl_selling_price.setText(f"Total Sale Price: Rs. {data['summary']['selling_price']:,.2f}")
