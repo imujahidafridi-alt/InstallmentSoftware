@@ -37,7 +37,7 @@ class CustomerRepository(BaseRepository):
 
     def search(self, query: str) -> List[Dict[str, Any]]:
         """
-        Searches customers by name, cnic, or mobile.
+        Searches customers by name or mobile.
         """
         if not query:
             return self.get_all()

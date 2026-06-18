@@ -85,7 +85,7 @@ class DueOverdueView(QWidget):
         self.table_overdue.setHorizontalHeaderLabels(["Customer", "Device Details", "Due Date", "Days Overdue", "Outstanding Balance"])
         self.table_overdue.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_overdue.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.table_overdue.verticalHeader().setVisible(False)
+        self.table_overdue.verticalHeader().setVisible(True)
         self.table_overdue.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table_overdue.doubleClicked.connect(self.on_overdue_double_clicked)
         overdue_layout.addWidget(self.table_overdue)
@@ -114,7 +114,7 @@ class DueOverdueView(QWidget):
         self.table_due.setHorizontalHeaderLabels(["Customer", "Device Details", "Due Date", "Outstanding Balance"])
         self.table_due.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_due.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.table_due.verticalHeader().setVisible(False)
+        self.table_due.verticalHeader().setVisible(True)
         self.table_due.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table_due.doubleClicked.connect(self.on_due_double_clicked)
         due_layout.addWidget(self.table_due)
@@ -289,8 +289,6 @@ class DueOverdueView(QWidget):
         sale_id = item.get("sale_id")
         win = self.window()
         if sale_id and win and hasattr(win, "switch_view"):
+            if hasattr(win, "view_ledger") and hasattr(win.view_ledger, "select_sale"):
+                win.view_ledger.select_sale(sale_id)
             win.switch_view(5)
-            if hasattr(win, "view_ledger") and hasattr(win.view_ledger, "cmb_sales"):
-                idx = win.view_ledger.cmb_sales.findData(sale_id)
-                if idx >= 0:
-                    win.view_ledger.cmb_sales.setCurrentIndex(idx)

@@ -71,20 +71,25 @@ class InstallmentViewModel:
         sale_id: str, 
         amount: float, 
         payment_date: str, 
-        notes: str
+        notes: str,
+        payment_method: str = "Cash"
     ) -> List[Dict[str, Any]]:
         """
         Processes payment collection and propagates changes.
         """
         if amount <= 0:
             raise ValueError("Payment amount must be greater than zero.")
-        result = self.pay_repo.record_payment_allocation(sale_id, amount, payment_date, notes)
+        result = self.pay_repo.record_payment_allocation(sale_id, amount, payment_date, notes, payment_method)
+        
+        from src.services.cache_service import CacheService
+        CacheService.clear()
+        
         try:
             sale = self.sale_repo.get_by_id(sale_id)
             customer_name = sale["customers"]["name"]
             device_name = f"{sale['devices']['brand']} {sale['devices']['model']}"
             from src.services.audit_log_service import AuditLogService
-            AuditLogService().log_action(f"Collected Payment: Rs. {amount:,.2f} from {customer_name} for {device_name}")
+            AuditLogService().log_action(f"Collected Payment ({payment_method}): Rs. {amount:,.2f} from {customer_name} for {device_name}")
         except Exception as log_ex:
             print(f"Failed to log payment audit: {log_ex}")
         return result
@@ -226,6 +231,9 @@ class InstallmentViewModel:
             
         success = self.inst_repo.reschedule_schedule(sale_id, new_start_date, duration)
         if success:
+            from src.services.cache_service import CacheService
+            CacheService.clear()
+            
             try:
                 sale = self.sale_repo.get_by_id(sale_id)
                 customer_name = sale["customers"]["name"]

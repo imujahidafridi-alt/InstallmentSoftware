@@ -42,6 +42,9 @@ class CustomerViewModel:
         }
         
         result = self.repo.create(customer_data)
+        from src.services.cache_service import CacheService
+        CacheService.clear()
+        
         from src.services.audit_log_service import AuditLogService
         AuditLogService().log_action(f"Created Customer: {result['name']} (Mobile: {result['mobile']})")
         return result
@@ -64,6 +67,9 @@ class CustomerViewModel:
         }
         
         result = self.repo.update(customer_id, customer_data)
+        from src.services.cache_service import CacheService
+        CacheService.clear()
+        
         from src.services.audit_log_service import AuditLogService
         reminders_str = "Reminders Enabled" if reminders_enabled else "Reminders Disabled"
         AuditLogService().log_action(f"Updated Customer: {result['name']} (Mobile: {result['mobile']}) - {reminders_str}")

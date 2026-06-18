@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QLineEdit, 
-    QComboBox, QPushButton, QDateEdit, QMessageBox, QFormLayout, QGridLayout
+    QComboBox, QPushButton, QDateEdit, QMessageBox, QFormLayout, QGridLayout,
+    QCompleter
 )
 from PyQt6.QtCore import QDate, Qt, QThread, pyqtSignal
 from src.viewmodels.sale_viewmodel import SaleViewModel
@@ -84,6 +85,9 @@ class SaleView(QWidget):
         self.cmb_customer.setEditable(True)
         self.cmb_customer.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.cmb_customer.setFixedHeight(35)
+        if self.cmb_customer.completer():
+            self.cmb_customer.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+            self.cmb_customer.completer().setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         left_layout.addWidget(self.cmb_customer)
 
         # Device selection
@@ -92,6 +96,9 @@ class SaleView(QWidget):
         self.cmb_device.setEditable(True)
         self.cmb_device.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.cmb_device.setFixedHeight(35)
+        if self.cmb_device.completer():
+            self.cmb_device.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+            self.cmb_device.completer().setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         left_layout.addWidget(self.cmb_device)
 
         # Financial Inputs Grid

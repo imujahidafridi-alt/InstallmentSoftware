@@ -300,10 +300,9 @@ class MainWindow(QMainWindow):
 
         if sale_id:
             # Direct them to Customer Ledgers page (index 5) and auto-select this sale
+            if hasattr(self.view_ledger, "select_sale"):
+                self.view_ledger.select_sale(sale_id)
             self.switch_view(5)
-            index = self.view_ledger.cmb_sales.findData(sale_id)
-            if index >= 0:
-                self.view_ledger.cmb_sales.setCurrentIndex(index)
             self.txt_global_search.clear()
             self.show_notification("Installment ledger found successfully.", "success")
         else:

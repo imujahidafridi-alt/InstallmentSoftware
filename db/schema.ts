@@ -68,6 +68,7 @@ export const payments = pgTable('payments', {
   amountReceived: numeric('amount_received', { precision: 12, scale: 2 }).notNull(),
   paymentDate: date('payment_date').notNull(),
   notes: text('notes'),
+  paymentMethod: varchar('payment_method', { length: 50 }).default('Cash').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

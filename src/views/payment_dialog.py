@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QDateEdit, QTextEdit, QPushButton, QMessageBox
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QDateEdit, QTextEdit, QPushButton, QMessageBox, QComboBox
 from PyQt6.QtCore import QDate, Qt
 
 class PaymentDialog(QDialog):
@@ -7,11 +7,12 @@ class PaymentDialog(QDialog):
         self.amount_received = 0.0
         self.payment_date = ""
         self.notes = ""
+        self.payment_method = "Cash"
         self.init_ui(default_amount)
 
     def init_ui(self, default_amount: float):
         self.setWindowTitle("Record Payment Collection")
-        self.resize(350, 280)
+        self.resize(350, 340)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -37,6 +38,13 @@ class PaymentDialog(QDialog):
         self.txt_date.setDate(QDate.currentDate())
         self.txt_date.setFixedHeight(30)
         layout.addWidget(self.txt_date)
+
+        # Payment Method
+        layout.addWidget(QLabel("Payment Method *"))
+        self.cmb_method = QComboBox()
+        self.cmb_method.addItems(["Cash", "Online"])
+        self.cmb_method.setFixedHeight(30)
+        layout.addWidget(self.cmb_method)
 
         # Notes
         layout.addWidget(QLabel("Remarks / Transaction Notes"))
@@ -71,6 +79,7 @@ class PaymentDialog(QDialog):
 
         self.amount_received = amt
         self.payment_date = self.txt_date.date().toPyDate().strftime("%Y-%m-%d")
+        self.payment_method = self.cmb_method.currentText()
         self.notes = self.txt_notes.toPlainText().strip()
         
         self.accept()

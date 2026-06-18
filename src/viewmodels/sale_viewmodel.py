@@ -94,6 +94,8 @@ class SaleViewModel:
         }
         
         result = self.repo.create_sale_with_installments(sale_data)
+        from src.services.cache_service import CacheService
+        CacheService.clear()
         try:
             cust = self.repo.db.table("customers").select("name").eq("id", customer_id).execute().data[0]
             dev = self.repo.db.table("devices").select("brand, model").eq("id", device_id).execute().data[0]

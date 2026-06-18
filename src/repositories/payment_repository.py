@@ -35,7 +35,8 @@ class PaymentRepository(BaseRepository):
         sale_id: str, 
         total_amount_received: float, 
         payment_date: str, 
-        notes: str
+        notes: str,
+        payment_method: str = "Cash"
     ) -> List[Dict[str, Any]]:
         """
         Allocates a payment received to the oldest unpaid/partially paid installments.
@@ -72,7 +73,8 @@ class PaymentRepository(BaseRepository):
                 "installment_id": last_inst["id"],
                 "amount_received": amount_remaining,
                 "payment_date": payment_date,
-                "notes": f"{notes} (Extra payment on fully paid schedule)"
+                "notes": f"{notes} (Extra payment on fully paid schedule)",
+                "payment_method": payment_method
             }
             res = self.db.table("payments").insert(payment_record).execute()
             return res.data or []
@@ -98,7 +100,8 @@ class PaymentRepository(BaseRepository):
                     "installment_id": inst_id,
                     "amount_received": round(remaining_for_inst, 2),
                     "payment_date": payment_date,
-                    "notes": notes if amount_remaining == total_amount_received else f"{notes} (Split allocation)"
+                    "notes": notes if amount_remaining == total_amount_received else f"{notes} (Split allocation)",
+                    "payment_method": payment_method
                 }
                 
                 # Insert payment record
@@ -119,7 +122,8 @@ class PaymentRepository(BaseRepository):
                     "installment_id": inst_id,
                     "amount_received": round(amount_remaining, 2),
                     "payment_date": payment_date,
-                    "notes": notes
+                    "notes": notes,
+                    "payment_method": payment_method
                 }
                 
                 pay_res = self.db.table("payments").insert(payment_record).execute()
@@ -141,7 +145,8 @@ class PaymentRepository(BaseRepository):
                 "installment_id": last_inst["id"],
                 "amount_received": round(amount_remaining, 2),
                 "payment_date": payment_date,
-                "notes": f"{notes} (Excess payment credit)"
+                "notes": f"{notes} (Excess payment credit)",
+                "payment_method": payment_method
             }
             pay_res = self.db.table("payments").insert(payment_record).execute()
             if pay_res.data:

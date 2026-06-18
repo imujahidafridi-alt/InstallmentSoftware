@@ -100,7 +100,10 @@ class DeviceViewModel:
             "imei_4": imeis[3].strip() if sim_type >= 4 and len(imeis) > 3 and imeis[3].strip() else None,
         }
         
-        return self.repo.create(device_data)
+        result = self.repo.create(device_data)
+        from src.services.cache_service import CacheService
+        CacheService.clear()
+        return result
 
     def search_devices(self, query: str) -> List[Dict[str, Any]]:
         """Searches device records."""

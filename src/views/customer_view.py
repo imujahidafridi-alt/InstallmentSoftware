@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel, QLineEdit, 
     QTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-    QCheckBox
+    QRadioButton, QButtonGroup
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from src.viewmodels.customer_viewmodel import CustomerViewModel
@@ -100,10 +100,20 @@ class CustomerView(QWidget):
         self.txt_remarks.setMaximumHeight(60)
         form_layout.addWidget(self.txt_remarks)
 
-        # Reminders Checkbox
-        self.chk_reminders = QCheckBox("Enable Reminders / Dashboard Alerts")
-        self.chk_reminders.setChecked(True)
-        form_layout.addWidget(self.chk_reminders)
+        # Reminders Radio Buttons (On / Off)
+        form_layout.addWidget(QLabel("Reminders / Alerts"))
+        self.radio_reminders_on = QRadioButton("On")
+        self.radio_reminders_off = QRadioButton("Off")
+        self.radio_reminders_on.setChecked(True)
+        
+        self.reminders_group = QButtonGroup(self)
+        self.reminders_group.addButton(self.radio_reminders_on)
+        self.reminders_group.addButton(self.radio_reminders_off)
+        
+        radio_layout = QHBoxLayout()
+        radio_layout.addWidget(self.radio_reminders_on)
+        radio_layout.addWidget(self.radio_reminders_off)
+        form_layout.addLayout(radio_layout)
         
         # Submit & Cancel Button Row
         btn_layout = QHBoxLayout()
@@ -222,7 +232,7 @@ class CustomerView(QWidget):
             item_mobile = QTableWidgetItem(cust["mobile"])
             item_address = QTableWidgetItem(cust["address"] or "-")
             rem_val = cust.get("reminders_enabled", True)
-            item_reminders = QTableWidgetItem("Enabled" if rem_val else "Disabled")
+            item_reminders = QTableWidgetItem("On" if rem_val else "Off")
             
             item_name.setTextAlignment(align_left)
             item_father.setTextAlignment(align_left)
@@ -253,13 +263,13 @@ class CustomerView(QWidget):
         mobile = self.txt_mobile.text().strip()
         address = self.txt_address.toPlainText().strip()
         remarks = self.txt_remarks.toPlainText().strip()
-        reminders_enabled = self.chk_reminders.isChecked()
+        reminders_enabled = self.radio_reminders_on.isChecked()
         
         self.btn_submit.setEnabled(False)
         self.btn_submit.setText("Updating..." if self.current_edit_customer_id else "Saving...")
         
         try:
-            reminders_status = "Enabled" if reminders_enabled else "Disabled"
+            reminders_status = "On" if reminders_enabled else "Off"
             if self.current_edit_customer_id:
                 self.vm.update_customer(self.current_edit_customer_id, name, father, mobile, address, remarks, reminders_enabled)
                 self.show_toast(f"Customer details updated successfully. Reminders: {reminders_status}", "success")
@@ -288,7 +298,7 @@ class CustomerView(QWidget):
         self.txt_mobile.clear()
         self.txt_address.clear()
         self.txt_remarks.clear()
-        self.chk_reminders.setChecked(True)
+        self.radio_reminders_on.setChecked(True)
         
         self.lbl_form_title.setText("Register New Customer")
         self.btn_submit.setText("Save Customer")
@@ -309,7 +319,12 @@ class CustomerView(QWidget):
         self.txt_mobile.setText(cust["mobile"])
         self.txt_address.setPlainText(cust["address"] or "")
         self.txt_remarks.setPlainText(cust["remarks"] or "")
-        self.chk_reminders.setChecked(cust.get("reminders_enabled", True))
+        
+        rem_val = cust.get("reminders_enabled", True)
+        if rem_val:
+            self.radio_reminders_on.setChecked(True)
+        else:
+            self.radio_reminders_off.setChecked(True)
         
         self.lbl_form_title.setText("Edit Customer Details")
         self.btn_submit.setText("Update Customer")

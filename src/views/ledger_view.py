@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QComboBox, 
-    QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QFileDialog
+    QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QFileDialog,
+    QCompleter
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from src.viewmodels.installment_viewmodel import InstallmentViewModel
@@ -72,6 +73,7 @@ class LedgerView(QWidget):
         
         self.list_worker = None
         self.detail_worker = None
+        self.pending_sale_id = None
         
         self.init_ui()
 
@@ -89,6 +91,11 @@ class LedgerView(QWidget):
         search_layout.addWidget(QLabel("Select Active Ledger / Sale:"))
         self.cmb_sales = QComboBox()
         self.cmb_sales.setFixedWidth(350)
+        self.cmb_sales.setEditable(True)
+        self.cmb_sales.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        if self.cmb_sales.completer():
+            self.cmb_sales.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+            self.cmb_sales.completer().setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self.cmb_sales.currentIndexChanged.connect(self.load_selected_ledger)
         search_layout.addWidget(self.cmb_sales)
         
@@ -200,6 +207,7 @@ class LedgerView(QWidget):
         self.list_worker = LedgerListWorker(self.vm)
         self.list_worker.sync_finished.connect(self.on_list_success)
         self.list_worker.sync_not_needed.connect(self.on_list_not_needed)
+        self.list_worker.sync_failed.connect(self.on_list_failed)
         self.list_worker.start()
 
     def on_list_success(self, sales: list):
@@ -211,8 +219,23 @@ class LedgerView(QWidget):
     def on_list_not_needed(self):
         pass
 
+    def on_list_failed(self, error_msg: str):
+        print(f"[Ledger List] Sync failed: {error_msg}")
+        self.show_toast(f"Failed to load ledgers: {error_msg}", "error")
+
+    def select_sale(self, sale_id: str):
+        """Sets the active sale ID to be selected. If present in dropdown, selects it immediately, otherwise queues it."""
+        self.pending_sale_id = sale_id
+        if self.cmb_sales.count() > 0:
+            idx = self.cmb_sales.findData(sale_id)
+            if idx >= 0:
+                self.cmb_sales.setCurrentIndex(idx)
+                self.pending_sale_id = None
+                self.load_selected_ledger()
+
     def populate_dropdown(self, sales: list):
-        prev_sel = self.cmb_sales.currentData()
+        # Determine target selection
+        target_sel = self.pending_sale_id or self.cmb_sales.currentData()
         
         # Block signals temporarily to prevent load loops during populate
         self.cmb_sales.blockSignals(True)
@@ -222,12 +245,20 @@ class LedgerView(QWidget):
             label = f"{sale['customers']['name']} - {sale['devices']['brand']} {sale['devices']['model']} (Rs. {float(sale['selling_price']):,.0f})"
             self.cmb_sales.addItem(label, sale["id"])
             
-        if prev_sel:
-            idx = self.cmb_sales.findData(prev_sel)
+        selected_index = -1
+        if target_sel:
+            idx = self.cmb_sales.findData(target_sel)
             if idx >= 0:
                 self.cmb_sales.setCurrentIndex(idx)
+                selected_index = idx
+                self.pending_sale_id = None
                 
+        # If no target selected, select the first one by default if items exist
+        if selected_index == -1 and self.cmb_sales.count() > 0:
+            self.cmb_sales.setCurrentIndex(0)
+            
         self.cmb_sales.blockSignals(False)
+        self.load_selected_ledger()
 
     def load_selected_ledger(self, *args):
         """Queries detailed ledger calculations for selection asynchronously."""
@@ -259,6 +290,7 @@ class LedgerView(QWidget):
         self.detail_worker = LedgerDetailWorker(self.vm, sale_id)
         self.detail_worker.sync_finished.connect(self.on_detail_success)
         self.detail_worker.sync_not_needed.connect(self.on_detail_not_needed)
+        self.detail_worker.sync_failed.connect(self.on_detail_failed)
         self.detail_worker.start()
 
     def on_detail_success(self, data: dict):
@@ -270,6 +302,10 @@ class LedgerView(QWidget):
 
     def on_detail_not_needed(self):
         pass
+
+    def on_detail_failed(self, error_msg: str):
+        print(f"[Ledger Detail] Sync failed: {error_msg}")
+        self.show_toast(f"Failed to load ledger details: {error_msg}", "error")
 
     def populate_ledger_details(self, data: dict):
         # Populate KPI metrics
@@ -395,7 +431,8 @@ class LedgerView(QWidget):
                     sale_id, 
                     dialog.amount_received, 
                     dialog.payment_date, 
-                    dialog.notes
+                    dialog.notes,
+                    dialog.payment_method
                 )
                 self.show_toast("Payment successfully processed and applied to the ledger.", "success")
                 

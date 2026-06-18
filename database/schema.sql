@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS payments (
     amount_received NUMERIC(12, 2) NOT NULL CHECK (amount_received > 0),
     payment_date DATE NOT NULL,
     notes TEXT,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'Cash',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
