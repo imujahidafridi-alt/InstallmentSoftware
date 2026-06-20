@@ -1,10 +1,13 @@
+import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QComboBox, 
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QFileDialog,
-    QCompleter, QListWidget, QListWidgetItem, QAbstractItemView, QLineEdit
+    QCompleter, QListWidget, QListWidgetItem, QAbstractItemView, QLineEdit, QToolButton
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QBuffer, QByteArray, QSize, QRect
+from PyQt6.QtGui import QIcon, QPainter, QPageSize
+from PyQt6.QtPrintSupport import QPrintPreviewDialog, QPrinter, QPrintPreviewWidget
+from PyQt6.QtPdf import QPdfDocument
 from src.viewmodels.installment_viewmodel import InstallmentViewModel
 from src.views.payment_dialog import PaymentDialog
 from src.views.reschedule_dialog import RescheduleDialog
@@ -130,7 +133,7 @@ class LedgerSearchWidget(QWidget):
     Selecting a row commits the choice and hides the popup.
     """
 
-    ledger_selected = pyqtSignal(str)   # emits sale_id
+    ledger_selected = pyqtSignal(str)   # emits sale_id or ""
 
     _POPUP_ITEM_HEIGHT = 52   # px per row
 
@@ -141,30 +144,59 @@ class LedgerSearchWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
+        layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         # Search input
         self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("Type to search ledger by customer, mobile, device, or IMEI…")
+        self.txt_search.setPlaceholderText("🔍  Type to search ledger by customer, mobile, device, or IMEI…")
         self.txt_search.setFixedHeight(36)
+        self.txt_search.setClearButtonEnabled(True)
         self.txt_search.setStyleSheet(
             "QLineEdit {"
             "  background: #FFFFFF;"
             "  border: 1px solid #CBD5E1;"
-            "  border-radius: 6px;"
+            "  border-top-left-radius: 6px;"
+            "  border-bottom-left-radius: 6px;"
+            "  border-top-right-radius: 0px;"
+            "  border-bottom-right-radius: 0px;"
             "  padding: 6px 12px;"
             "  font-size: 13px;"
             "  color: #0F172A;"
             "}"
             "QLineEdit:focus {"
             "  border: 1.5px solid #3B82F6;"
+            "  border-right: none;"
             "}"
         )
         self.txt_search.textChanged.connect(self._on_text_changed)
         self.txt_search.focusOutEvent = self._on_focus_out
+        self.txt_search.mousePressEvent = self._on_mouse_press
         layout.addWidget(self.txt_search)
+
+        # Dropdown arrow button
+        self.btn_dropdown = QToolButton()
+        self.btn_dropdown.setText("▼")
+        self.btn_dropdown.setFixedHeight(36)
+        self.btn_dropdown.setFixedWidth(30)
+        self.btn_dropdown.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_dropdown.setStyleSheet(
+            "QToolButton {"
+            "  background: #F1F5F9;"
+            "  border: 1px solid #CBD5E1;"
+            "  border-left: none;"
+            "  border-top-right-radius: 6px;"
+            "  border-bottom-right-radius: 6px;"
+            "  color: #475569;"
+            "  font-size: 10px;"
+            "}"
+            "QToolButton:hover {"
+            "  background: #E2E8F0;"
+            "}"
+        )
+        self.btn_dropdown.clicked.connect(self._toggle_popup)
+        layout.addWidget(self.btn_dropdown)
 
         # Popup list (hidden by default)
         self.list_popup = QListWidget()
@@ -197,9 +229,50 @@ class LedgerSearchWidget(QWidget):
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._filter_popup)
 
+    def _toggle_popup(self):
+        if self.list_popup.isVisible():
+            self._hide_popup()
+        else:
+            self.txt_search.setFocus()
+            self._filter_popup()
+
+    def _on_mouse_press(self, event):
+        QLineEdit.mousePressEvent(self.txt_search, event)
+        if not self.list_popup.isVisible():
+            self._filter_popup()
+
     def _on_focus_out(self, event):
+        # Prevent auto-hide if dropdown button is clicked (let toggle handler do the work)
+        if self.btn_dropdown.underMouse():
+            QLineEdit.focusOutEvent(self.txt_search, event)
+            return
         QTimer.singleShot(200, self._hide_popup)
         QLineEdit.focusOutEvent(self.txt_search, event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_popup_geometry()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._update_popup_geometry()
+
+    def _update_popup_geometry(self):
+        if not self.list_popup.isVisible():
+            return
+        win = self.window()
+        if win:
+            if self.list_popup.parent() != win:
+                self.list_popup.setParent(win)
+            pos = self.txt_search.mapTo(win, self.txt_search.rect().bottomLeft())
+            visible_rows = min(max(self.list_popup.count(), 1), 5)
+            self.list_popup.setGeometry(
+                pos.x(),
+                pos.y() + 2,
+                self.width(),
+                visible_rows * self._POPUP_ITEM_HEIGHT
+            )
+            self.list_popup.raise_()
 
     def set_sales(self, sales: list):
         self._sales = sales
@@ -212,7 +285,8 @@ class LedgerSearchWidget(QWidget):
         for sale in self._sales:
             if sale["id"] == sale_id:
                 formatted_price = ConfigManager.format_currency(sale['selling_price'])
-                display = f"{sale['customers']['name']} - {sale['devices']['brand']} {sale['devices']['model']} ({formatted_price})"
+                father = sale['customers'].get('father_name') or '—'
+                display = f"{sale['customers']['name']} | {father} | {sale['devices']['brand']} {sale['devices']['model']} ({formatted_price})"
                 self.txt_search.blockSignals(True)
                 self.txt_search.setText(display)
                 self.txt_search.blockSignals(False)
@@ -224,7 +298,9 @@ class LedgerSearchWidget(QWidget):
         self._hide_popup()
 
     def _on_text_changed(self, text: str):
-        self._selected_id = ""
+        if not text:
+            self._selected_id = ""
+            self.ledger_selected.emit("")
         self._timer.stop()
         self._timer.start(200)
 
@@ -232,76 +308,74 @@ class LedgerSearchWidget(QWidget):
         query = self.txt_search.text().strip().lower()
         self.list_popup.clear()
 
-        if not query:
-            self._hide_popup()
-            return
-
+        # Empty or active sale format is considered "no query" to list all
+        is_empty_or_selected = not query or self._selected_id
+        
         matches = []
-        for sale in self._sales:
-            cust = sale.get("customers") or {}
-            dev = sale.get("devices") or {}
-            
-            cust_name = cust.get("name", "").lower()
-            father_name = cust.get("father_name", "").lower()
-            mobile = cust.get("mobile", "").lower()
-            brand = dev.get("brand", "").lower()
-            model = dev.get("model", "").lower()
-            imei_1 = dev.get("imei_1", "").lower() if dev.get("imei_1") else ""
-            
-            if (query in cust_name or 
-                query in father_name or 
-                query in mobile or 
-                query in brand or 
-                query in model or 
-                query in imei_1 or 
-                query in sale.get("id", "").lower()):
-                matches.append(sale)
+        if is_empty_or_selected:
+            matches = self._sales[:10]
+        else:
+            for sale in self._sales:
+                cust = sale.get("customers") or {}
+                dev = sale.get("devices") or {}
+                
+                cust_name = cust.get("name", "").lower()
+                father_name = cust.get("father_name", "").lower()
+                mobile = cust.get("mobile", "").lower()
+                address = cust.get("address", "").lower() if cust.get("address") else ""
+                brand = dev.get("brand", "").lower()
+                model = dev.get("model", "").lower()
+                imei_1 = dev.get("imei_1", "").lower() if dev.get("imei_1") else ""
+                
+                if (query in cust_name or 
+                    query in father_name or 
+                    query in mobile or 
+                    query in address or
+                    query in brand or 
+                    query in model or 
+                    query in imei_1 or 
+                    query in sale.get("id", "").lower()):
+                    matches.append(sale)
 
         if not matches:
-            self._hide_popup()
-            return
-
-        for sale in matches[:20]:   # cap at 20 suggestions
-            cust = sale.get("customers") or {}
-            dev = sale.get("devices") or {}
-            father = cust.get("father_name") or "—"
-            dev_name = f"{dev.get('brand', '')} {dev.get('model', '')}"
-            price = ConfigManager.format_currency(sale.get("selling_price", 0))
-            display = f"{cust.get('name')}  /  {father}  /  {dev_name}  /  {price}"
-
-            item = QListWidgetItem(display)
-            item.setData(Qt.ItemDataRole.UserRole, sale["id"])
-            item.setToolTip(
-                f"Customer: {cust.get('name')}\n"
-                f"Father:   {father}\n"
-                f"Device:   {dev_name}\n"
-                f"Price:    {price}"
-            )
+            item = QListWidgetItem("No matching ledgers found")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
             self.list_popup.addItem(item)
+        else:
+            for sale in matches[:20]:
+                cust = sale.get("customers") or {}
+                dev = sale.get("devices") or {}
+                father = cust.get("father_name") or "—"
+                address = cust.get("address") or "—"
+                mobile = cust.get("mobile") or "—"
+                
+                display = f"{cust.get('name')}  |  {father}  |  {address}  |  {mobile}"
 
-        win = self.window()
-        if win:
-            if self.list_popup.parent() != win:
-                self.list_popup.setParent(win)
-            pos = self.txt_search.mapTo(win, self.txt_search.rect().bottomLeft())
-            visible_rows = min(len(matches), 5)
-            self.list_popup.setGeometry(
-                pos.x(),
-                pos.y() + 2,
-                self.txt_search.width(),
-                visible_rows * self._POPUP_ITEM_HEIGHT
-            )
-            self.list_popup.raise_()
-            self.list_popup.show()
+                item = QListWidgetItem(display)
+                item.setData(Qt.ItemDataRole.UserRole, sale["id"])
+                item.setToolTip(
+                    f"Customer: {cust.get('name')}\n"
+                    f"Father:   {father}\n"
+                    f"Address:  {address}\n"
+                    f"Mobile:   {mobile}"
+                )
+                self.list_popup.addItem(item)
+
+        self.list_popup.show()
+        self._update_popup_geometry()
 
     def _on_item_clicked(self, item: QListWidgetItem):
         sale_id = item.data(Qt.ItemDataRole.UserRole)
+        if not sale_id:
+            return
+            
         self._selected_id = sale_id
         
         for sale in self._sales:
             if sale["id"] == sale_id:
                 formatted_price = ConfigManager.format_currency(sale['selling_price'])
-                display = f"{sale['customers']['name']} - {sale['devices']['brand']} {sale['devices']['model']} ({formatted_price})"
+                father = sale['customers'].get('father_name') or '—'
+                display = f"{sale['customers']['name']} | {father} | {sale['devices']['brand']} {sale['devices']['model']} ({formatted_price})"
                 self.txt_search.blockSignals(True)
                 self.txt_search.setText(display)
                 self.txt_search.blockSignals(False)
@@ -346,7 +420,7 @@ class LedgerView(QWidget):
         
         search_layout.addWidget(QLabel("Select Active Ledger / Sale:"))
         self.ledg_search = LedgerSearchWidget()
-        self.ledg_search.setFixedWidth(380)
+        self.ledg_search.setFixedWidth(550)
         self.ledg_search.ledger_selected.connect(self.load_selected_ledger)
         search_layout.addWidget(self.ledg_search)
         
@@ -379,7 +453,6 @@ class LedgerView(QWidget):
         lbl_sum_title.setObjectName("lbl_section_title")
         sum_layout.addWidget(lbl_sum_title)
 
-        import os
         def create_metric_row(icon_name, label_widget):
             row_widget = QWidget()
             row_layout = QHBoxLayout(row_widget)
@@ -452,10 +525,23 @@ class LedgerView(QWidget):
         self.btn_pdf.setObjectName("btn_secondary")
         self.btn_pdf.clicked.connect(self.export_pdf)
         self.btn_pdf.setEnabled(False)
-        
+
+        self.btn_print = QPushButton("Preview & Print Ledger")
+        self.btn_print.setObjectName("btn_secondary")
+        self.btn_print.clicked.connect(self.print_ledger)
+        self.btn_print.setEnabled(False)
+
+        # Set icons
+        icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons")
+        self.btn_pay.setIcon(QIcon(os.path.join(icons_dir, "coins.svg")))
+        self.btn_reschedule.setIcon(QIcon(os.path.join(icons_dir, "calendar.svg")))
+        self.btn_pdf.setIcon(QIcon(os.path.join(icons_dir, "check-list.svg")))
+        self.btn_print.setIcon(QIcon(os.path.join(icons_dir, "printer.svg")))
+
         act_layout.addWidget(self.btn_pay)
         act_layout.addWidget(self.btn_reschedule)
         act_layout.addWidget(self.btn_pdf)
+        act_layout.addWidget(self.btn_print)
         left_col.addWidget(action_box)
         
         content_layout.addLayout(left_col, 3)
@@ -556,12 +642,14 @@ class LedgerView(QWidget):
             self.btn_pay.setEnabled(False)
             self.btn_reschedule.setEnabled(False)
             self.btn_pdf.setEnabled(False)
+            self.btn_print.setEnabled(False)
             return
 
         # Disable buttons temporarily until data is loaded
         self.btn_pay.setEnabled(False)
         self.btn_reschedule.setEnabled(False)
         self.btn_pdf.setEnabled(False)
+        self.btn_print.setEnabled(False)
 
         # 1. Populate immediately if detail cache exists
         if sale_id in self.cache_ledger_details:
@@ -687,6 +775,7 @@ class LedgerView(QWidget):
         self.btn_pay.setEnabled(has_outstanding)
         self.btn_reschedule.setEnabled(has_outstanding)
         self.btn_pdf.setEnabled(True)
+        self.btn_print.setEnabled(True)
 
     def show_toast(self, message: str, type: str = "info"):
         if hasattr(self.window(), 'show_notification'):
@@ -753,10 +842,27 @@ class LedgerView(QWidget):
             return
             
         # Select save destination
+        raw_text = self.ledg_search.txt_search.text()
+        parts = [p.strip() for p in raw_text.split('|') if p.strip()]
+        
+        if parts:
+            cust_name = parts[0].replace(' ', '_')
+            if len(parts) > 1 and parts[1] != '—':
+                father_name = parts[1].replace(' ', '_')
+                default_filename = f"Ledger_{cust_name}_{father_name}.pdf"
+            else:
+                default_filename = f"Ledger_{cust_name}.pdf"
+        else:
+            default_filename = "Ledger_Report.pdf"
+            
+        # Remove any invalid OS filename characters
+        for char in '<>:"/\\|?*':
+            default_filename = default_filename.replace(char, '')
+
         file_path, _ = QFileDialog.getSaveFileName(
             self, 
             "Save Customer Ledger PDF", 
-            f"Ledger_{self.ledg_search.txt_search.text().split(' - ')[0].replace(' ', '_')}.pdf",
+            default_filename,
             "PDF Files (*.pdf)"
         )
         
@@ -772,8 +878,188 @@ class LedgerView(QWidget):
         self.pdf_worker.failed.connect(self.on_pdf_failed)
         self.pdf_worker.start()
 
+    def print_ledger(self, *args):
+        sale_id = self.ledg_search.selected_id()
+        if not sale_id:
+            return
+            
+        import tempfile
+        # Create a temp file path in the OS temp directory
+        try:
+            temp_file = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+            file_path = temp_file.name
+            temp_file.close() # Close so background thread can write to it on Windows
+        except Exception as e:
+            self.show_toast(f"Failed to create temporary file:\n{str(e)}", "error")
+            return
+            
+        if self.pdf_worker and self.pdf_worker.isRunning():
+            self.pdf_worker.terminate()
+            self.pdf_worker.wait()
+            
+        self.pdf_worker = PdfExportWorker(self.vm, sale_id, file_path)
+        self.pdf_worker.success.connect(self.on_print_success)
+        self.pdf_worker.failed.connect(self.on_pdf_failed)
+        self.pdf_worker.start()
+
     def on_pdf_success(self, file_path: str):
         self.show_toast(f"PDF Ledger successfully exported to:\n{file_path}", "success")
+
+    def on_print_success(self, file_path: str):
+        try:
+            # Read all bytes from the temporary file
+            with open(file_path, "rb") as f:
+                pdf_data = f.read()
+            
+            # Immediately delete the temporary file
+            try:
+                os.unlink(file_path)
+            except Exception as ex:
+                print(f"Failed to delete temp file {file_path}: {ex}")
+                
+            # Launch in-memory preview & print dialog
+            self.show_print_preview(pdf_data)
+        except Exception as e:
+            self.show_toast(f"Could not load PDF file for preview:\n{str(e)}", "error")
+
+    def show_print_preview(self, pdf_data: bytes):
+        # Load PDF in-memory and keep references alive on self during exec
+        self._preview_pdf_doc = QPdfDocument(None)
+        self._preview_buffer = QBuffer()
+        self._preview_buffer.setData(QByteArray(pdf_data))
+        self._preview_buffer.open(QBuffer.OpenModeFlag.ReadOnly)
+        
+        self._preview_pdf_doc.load(self._preview_buffer)
+        if self._preview_pdf_doc.status() != QPdfDocument.Status.Ready:
+            self.show_toast("Failed to parse PDF document for printing preview.", "error")
+            self._preview_pdf_doc = None
+            self._preview_buffer = None
+            return
+            
+        # Create print preview dialog
+        preview = QPrintPreviewDialog(self)
+        preview.setWindowTitle("Print Preview - Customer Ledger")
+        
+        # Apply specific stylesheet override to restore toolbar widget proportions and colors
+        preview.setStyleSheet("""
+            QPrintPreviewDialog {
+                background-color: #F8FAFC;
+            }
+            QPrintPreviewDialog QToolBar {
+                background-color: #1E293B;
+                border-bottom: 1px solid #0F172A;
+                spacing: 4px;
+                padding: 4px;
+            }
+            QPrintPreviewDialog QLabel {
+                color: #F8FAFC;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 0 4px;
+            }
+            QPrintPreviewDialog QComboBox {
+                background-color: #FFFFFF;
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                padding: 2px 24px 2px 6px;
+                color: #0F172A;
+                min-width: 85px;
+                height: 24px;
+                font-size: 12px;
+            }
+            QPrintPreviewDialog QComboBox::drop-down {
+                border: none;
+                width: 20px;
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+            }
+            QPrintPreviewDialog QComboBox::down-arrow {
+                border-top: 5px solid #475569;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                width: 0;
+                height: 0;
+                margin-right: 6px;
+            }
+            QPrintPreviewDialog QLineEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                padding: 2px 6px;
+                color: #0F172A;
+                height: 24px;
+                font-size: 12px;
+            }
+            QPrintPreviewDialog QToolButton {
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 4px;
+                background-color: transparent;
+            }
+            QPrintPreviewDialog QToolButton:hover {
+                background-color: #334155;
+            }
+            QPrintPreviewDialog QToolButton:pressed, QPrintPreviewDialog QToolButton:checked {
+                background-color: #2563EB;
+            }
+        """)
+        
+        # Configure printer settings
+        printer = preview.printer()
+        printer.setPageSize(QPageSize(QPageSize.PageSizeId.Letter))
+        
+        # Auto-zoom to perfect width for readability
+        preview_widget = preview.findChild(QPrintPreviewWidget)
+        if preview_widget:
+            preview_widget.setZoomMode(QPrintPreviewWidget.ZoomMode.FitToWidth)
+            
+        # Define paint callback
+        def paint_pdf(p_target: QPrinter):
+            painter = QPainter(p_target)
+            if not painter.isActive():
+                return
+                
+            page_count = self._preview_pdf_doc.pageCount()
+            for page_idx in range(page_count):
+                if page_idx > 0:
+                    p_target.newPage()
+                    
+                # PDF page size in points (1 pt = 1/72 inch)
+                pdf_page_size = self._preview_pdf_doc.pagePointSize(page_idx)
+                
+                # Render page at 300 DPI for crystal clear text (independent of screen resolution)
+                target_dpi = 300
+                render_w = int(pdf_page_size.width() * target_dpi / 72.0)
+                render_h = int(pdf_page_size.height() * target_dpi / 72.0)
+                
+                image = self._preview_pdf_doc.render(page_idx, QSize(render_w, render_h))
+                
+                # Get printable area dimensions in pixels at current resolution
+                page_rect = p_target.pageLayout().paintRectPixels(p_target.resolution())
+                
+                # Fit aspect ratio
+                scale_x = page_rect.width() / pdf_page_size.width()
+                scale_y = page_rect.height() / pdf_page_size.height()
+                scale = min(scale_x, scale_y)
+                
+                paint_w = int(pdf_page_size.width() * scale)
+                paint_h = int(pdf_page_size.height() * scale)
+                
+                # Center the page image
+                x_offset = page_rect.left() + (page_rect.width() - paint_w) // 2
+                y_offset = page_rect.top() + (page_rect.height() - paint_h) // 2
+                
+                # Draw high-resolution image scaled down to the target display rect
+                painter.drawImage(QRect(x_offset, y_offset, paint_w, paint_h), image)
+                
+            painter.end()
+            
+        preview.paintRequested.connect(paint_pdf)
+        preview.exec()
+        
+        # Clean up references after execution finishes
+        self._preview_pdf_doc = None
+        self._preview_buffer = None
 
     def on_pdf_failed(self, error_msg: str):
         self.show_toast(f"Could not compile PDF document:\n{error_msg}", "error")

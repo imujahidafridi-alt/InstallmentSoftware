@@ -95,7 +95,7 @@ class SaleRepository(BaseRepository):
         """
         Gets all sales with customer and device details.
         """
-        response = self.db.table("sales").select("*, customers(name, mobile), devices(name, brand, model)").order("created_at", desc=True).limit(limit).execute()
+        response = self.db.table("sales").select("*, customers(*), devices(*)").order("created_at", desc=True).limit(limit).execute()
         return response.data or []
 
     def get_customer_sales(self, customer_id: str) -> List[Dict[str, Any]]:
