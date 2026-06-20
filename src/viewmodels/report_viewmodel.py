@@ -58,6 +58,48 @@ class ReportViewModel(BaseRepository):
                 print(f"Error compiling row: {e}")
                 continue
                 
+        # Fetch Sales / Down Payments for the month
+        sales_response = (
+            self.db.table("sales")
+            .select("*, customers(*), devices(*)")
+            .gte("start_date", start_of_month)
+            .lte("start_date", end_of_month)
+            .execute()
+        )
+        raw_sales = sales_response.data or []
+        
+        for sale in raw_sales:
+            try:
+                dp_amt = float(sale.get("down_payment", 0))
+                if dp_amt <= 0:
+                    continue
+                    
+                total_collection += dp_amt
+                cust = sale["customers"]
+                dev = sale["devices"]
+                
+                selling_price = float(sale["selling_price"])
+                margin = float(sale.get("margin", 0))
+                pro_rated_profit = 0.0
+                if selling_price > 0:
+                    pro_rated_profit = (dp_amt / selling_price) * margin
+                total_profit += pro_rated_profit
+                
+                processed_data.append({
+                    "payment_date": sale["start_date"],
+                    "amount_received": dp_amt,
+                    "notes": "Advance / Down Payment",
+                    "customer_name": cust["name"],
+                    "device_name": dev["name"],
+                    "sale_id": sale["id"]
+                })
+            except Exception as e:
+                print(f"Error compiling down payment row: {e}")
+                continue
+                
+        # Sort combined data by date
+        processed_data.sort(key=lambda x: x["payment_date"])
+                
         # Calculate system-wide outstanding balance
         # For simplicity, we get current total outstanding balance
         all_sales_res = self.db.table("sales").select("selling_price, down_payment").execute()

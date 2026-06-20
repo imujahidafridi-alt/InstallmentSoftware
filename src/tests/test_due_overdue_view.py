@@ -1,6 +1,7 @@
 import pytest
 from PyQt6.QtCore import Qt
 from src.views.due_overdue_view import DueOverdueView
+from src.config import ConfigManager
 
 def test_due_overdue_view_init(qtbot):
     # Test instantiation of DueOverdueView
@@ -56,10 +57,12 @@ def test_due_overdue_view_population(qtbot):
 
     # Assert rows are added correctly
     assert view.table_due.rowCount() == 1
-    assert view.table_due.item(0, 0).text() == "Test Customer"
-    assert view.table_due.item(0, 3).text() == "Rs. 5,000.00"
+    assert view.table_due.item(0, 0).text() == "1"
+    assert view.table_due.item(0, 1).text() == "Test Customer"
+    assert view.table_due.item(0, 4).text() == ConfigManager.format_currency(5000.0)
 
     assert view.table_overdue.rowCount() == 1
-    assert view.table_overdue.item(0, 0).text() == "Overdue Customer"
-    assert view.table_overdue.item(0, 3).text() == "30 days"
-    assert view.table_overdue.item(0, 4).text() == "Rs. 7,500.00"
+    assert view.table_overdue.item(0, 0).text() == "1"
+    assert view.table_overdue.item(0, 1).text() == "Overdue Customer"
+    assert view.table_overdue.item(0, 4).text() == "30 days"
+    assert view.table_overdue.item(0, 5).text() == ConfigManager.format_currency(7500.0)

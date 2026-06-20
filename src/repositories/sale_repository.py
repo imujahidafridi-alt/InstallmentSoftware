@@ -49,16 +49,29 @@ class SaleRepository(BaseRepository):
         duration = int(sale_data["installment_months"])
         
         if remaining_balance > 0 and duration > 0:
-            monthly_amount = remaining_balance / duration
+            from src.config import ConfigManager
+            dec = ConfigManager.get_decimal_places()
+            monthly_amount = round(remaining_balance / duration, dec)
             
             # Generate installment list
             installments_to_insert = []
+            accumulated = 0.0
+            
             for i in range(1, duration + 1):
                 due_date = add_months(start_date, i)
+                
+                if i == duration:
+                    # Last installment absorbs any fractional remainder
+                    inst_amount = round(remaining_balance - accumulated, dec)
+                else:
+                    inst_amount = monthly_amount
+                    
+                accumulated += inst_amount
+                
                 installments_to_insert.append({
                     "sale_id": sale_id,
                     "due_date": due_date.strftime("%Y-%m-%d"),
-                    "amount": round(monthly_amount, 2),
+                    "amount": inst_amount,
                     "status": "Pending"
                 })
                 

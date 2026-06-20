@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from src.viewmodels.installment_viewmodel import InstallmentViewModel
 from src.services.cache_service import CacheService
+from src.config import ConfigManager
 
 class DueOverdueWorker(QThread):
     sync_finished = pyqtSignal(dict)
@@ -81,11 +82,13 @@ class DueOverdueView(QWidget):
         overdue_layout.addLayout(overdue_ctrl_layout)
         
         # Overdue Table
-        self.table_overdue = QTableWidget(0, 5)
-        self.table_overdue.setHorizontalHeaderLabels(["Customer", "Device Details", "Due Date", "Days Overdue", "Outstanding Balance"])
+        self.table_overdue = QTableWidget(0, 6)
+        self.table_overdue.setHorizontalHeaderLabels(["S.No", "Customer", "Device Details", "Due Date", "Days Overdue", "Outstanding Balance"])
         self.table_overdue.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table_overdue.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_overdue.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.table_overdue.verticalHeader().setVisible(True)
+        self.table_overdue.verticalHeader().setVisible(False)
+        self.table_overdue.verticalHeader().setDefaultSectionSize(38)
         self.table_overdue.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table_overdue.doubleClicked.connect(self.on_overdue_double_clicked)
         overdue_layout.addWidget(self.table_overdue)
@@ -110,11 +113,13 @@ class DueOverdueView(QWidget):
         due_layout.addLayout(due_ctrl_layout)
         
         # Due Table
-        self.table_due = QTableWidget(0, 4)
-        self.table_due.setHorizontalHeaderLabels(["Customer", "Device Details", "Due Date", "Outstanding Balance"])
+        self.table_due = QTableWidget(0, 5)
+        self.table_due.setHorizontalHeaderLabels(["S.No", "Customer", "Device Details", "Due Date", "Outstanding Balance"])
         self.table_due.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table_due.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_due.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.table_due.verticalHeader().setVisible(True)
+        self.table_due.verticalHeader().setVisible(False)
+        self.table_due.verticalHeader().setDefaultSectionSize(38)
         self.table_due.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table_due.doubleClicked.connect(self.on_due_double_clicked)
         due_layout.addWidget(self.table_due)
@@ -183,25 +188,35 @@ class DueOverdueView(QWidget):
             data = self.tracking_data.get("due_this_month", [])
 
         self.table_due.setRowCount(0)
+        align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         for idx, item in enumerate(data):
             self.table_due.insertRow(idx)
-            
+
+            item_sno = QTableWidgetItem(str(idx + 1))
+            item_sno.setTextAlignment(align_center)
+            self.table_due.setItem(idx, 0, item_sno)
+
             item_cust = QTableWidgetItem(item["customer_name"])
             item_cust.setTextAlignment(align_left)
-            self.table_due.setItem(idx, 0, item_cust)
-            
+            item_cust.setToolTip(item["customer_name"])
+            self.table_due.setItem(idx, 1, item_cust)
+
             item_dev = QTableWidgetItem(item["device_name"])
             item_dev.setTextAlignment(align_left)
-            self.table_due.setItem(idx, 1, item_dev)
-            
+            item_dev.setToolTip(item["device_name"])
+            self.table_due.setItem(idx, 2, item_dev)
+
             item_due = QTableWidgetItem(item["due_date"])
             item_due.setTextAlignment(align_left)
-            self.table_due.setItem(idx, 2, item_due)
-            
-            item_outstanding = QTableWidgetItem(f"Rs. {item['outstanding_amount']:,.2f}")
+            item_due.setToolTip(item["due_date"])
+            self.table_due.setItem(idx, 3, item_due)
+
+            formatted_outstanding = ConfigManager.format_currency(item["outstanding_amount"])
+            item_outstanding = QTableWidgetItem(formatted_outstanding)
             item_outstanding.setTextAlignment(align_left)
-            self.table_due.setItem(idx, 3, item_outstanding)
+            item_outstanding.setToolTip(formatted_outstanding)
+            self.table_due.setItem(idx, 4, item_outstanding)
 
     def update_overdue_table(self):
         if not self.tracking_data:
@@ -223,30 +238,42 @@ class DueOverdueView(QWidget):
                     self.tracking_data.get("overdue_90_plus", []))
 
         self.table_overdue.setRowCount(0)
+        align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         for idx, item in enumerate(data):
             self.table_overdue.insertRow(idx)
-            
+
+            item_sno = QTableWidgetItem(str(idx + 1))
+            item_sno.setTextAlignment(align_center)
+            self.table_overdue.setItem(idx, 0, item_sno)
+
             item_cust = QTableWidgetItem(item["customer_name"])
             item_cust.setTextAlignment(align_left)
-            self.table_overdue.setItem(idx, 0, item_cust)
-            
+            item_cust.setToolTip(item["customer_name"])
+            self.table_overdue.setItem(idx, 1, item_cust)
+
             item_dev = QTableWidgetItem(item["device_name"])
             item_dev.setTextAlignment(align_left)
-            self.table_overdue.setItem(idx, 1, item_dev)
-            
+            item_dev.setToolTip(item["device_name"])
+            self.table_overdue.setItem(idx, 2, item_dev)
+
             item_due = QTableWidgetItem(item["due_date"])
             item_due.setTextAlignment(align_left)
-            self.table_overdue.setItem(idx, 2, item_due)
-            
-            days_item = QTableWidgetItem(f"{item['days_overdue']} days")
+            item_due.setToolTip(item["due_date"])
+            self.table_overdue.setItem(idx, 3, item_due)
+
+            days_str = f"{item['days_overdue']} days"
+            days_item = QTableWidgetItem(days_str)
             days_item.setTextAlignment(align_left)
             days_item.setForeground(Qt.GlobalColor.red)
-            self.table_overdue.setItem(idx, 3, days_item)
-            
-            item_outstanding = QTableWidgetItem(f"Rs. {item['outstanding_amount']:,.2f}")
+            days_item.setToolTip(days_str)
+            self.table_overdue.setItem(idx, 4, days_item)
+
+            formatted_outstanding = ConfigManager.format_currency(item["outstanding_amount"])
+            item_outstanding = QTableWidgetItem(formatted_outstanding)
             item_outstanding.setTextAlignment(align_left)
-            self.table_overdue.setItem(idx, 4, item_outstanding)
+            item_outstanding.setToolTip(formatted_outstanding)
+            self.table_overdue.setItem(idx, 5, item_outstanding)
 
     def on_overdue_double_clicked(self, model_index):
         filter_type = self.cmb_overdue_filter.currentText()

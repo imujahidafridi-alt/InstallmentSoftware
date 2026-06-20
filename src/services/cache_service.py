@@ -67,7 +67,7 @@ class CacheService:
         # Multi-table mapping for compound categories
         compound_mapping = {
             "dashboard": ["customers", "sales", "payments"],
-            "ledger": ["sales", "payments"],
+            "ledger": ["sales", "payments", "installments"],
             "reports": ["payments"],
             "due_overdue": ["installments", "payments", "customers"]
         }

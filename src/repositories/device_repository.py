@@ -66,3 +66,9 @@ class DeviceRepository(BaseRepository):
         )
         response = self.db.table("devices").select("*").or_(or_filter).order("name").execute()
         return response.data or []
+
+    def delete(self, device_id: str):
+        """
+        Deletes a device record.
+        """
+        self.db.table("devices").delete().eq("id", device_id).execute()

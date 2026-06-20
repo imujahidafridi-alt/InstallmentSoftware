@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from src.viewmodels.report_viewmodel import ReportViewModel
 from datetime import datetime
 from src.services.cache_service import CacheService
+from src.config import ConfigManager
 
 class ReportWorker(QThread):
     sync_finished = pyqtSignal(list, dict)
@@ -115,6 +116,8 @@ class ReportView(QWidget):
         self.table_collections.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_collections.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table_collections.verticalHeader().setVisible(False)
+        self.table_collections.verticalHeader().setDefaultSectionSize(38)
+        self.table_collections.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         main_layout.addWidget(self.table_collections)
 
 
@@ -163,6 +166,7 @@ class ReportView(QWidget):
         # 2. Prevent concurrent runs
         if self.worker and self.worker.isRunning():
             self.worker.terminate()
+            self.worker.wait()
             
         # 3. Fire async worker
         self.worker = ReportWorker(self.vm, month, year)
@@ -186,9 +190,9 @@ class ReportView(QWidget):
 
     def populate_report_ui(self, data: list, summary: dict):
         # Fill summary widgets
-        self.lbl_sum_received.setText(f"Collections This Month: Rs. {summary['total_collection']:,.2f}")
-        self.lbl_sum_outstanding.setText(f"System Outstanding: Rs. {summary['total_outstanding']:,.2f}")
-        self.lbl_sum_profit.setText(f"Profit Margin: Rs. {summary['total_profit']:,.2f}")
+        self.lbl_sum_received.setText(f"Collections This Month: {ConfigManager.format_currency(summary['total_collection'])}")
+        self.lbl_sum_outstanding.setText(f"System Outstanding: {ConfigManager.format_currency(summary['total_outstanding'])}")
+        self.lbl_sum_profit.setText(f"Profit Margin: {ConfigManager.format_currency(summary['total_profit'])}")
         
         # Populate list details
         self.table_collections.setRowCount(0)
@@ -198,23 +202,29 @@ class ReportView(QWidget):
             
             item_sno = QTableWidgetItem(str(idx + 1))
             item_sno.setTextAlignment(align_left)
+            item_sno.setToolTip(str(idx + 1))
             self.table_collections.setItem(idx, 0, item_sno)
             
             item_cust = QTableWidgetItem(item["customer_name"])
             item_cust.setTextAlignment(align_left)
+            item_cust.setToolTip(item["customer_name"])
             self.table_collections.setItem(idx, 1, item_cust)
             
             item_dev = QTableWidgetItem(item["device_name"])
             item_dev.setTextAlignment(align_left)
+            item_dev.setToolTip(item["device_name"])
             self.table_collections.setItem(idx, 2, item_dev)
             
             pay_dt = datetime.strptime(item["payment_date"], "%Y-%m-%d").strftime("%d-%b-%Y")
             item_pay = QTableWidgetItem(pay_dt)
             item_pay.setTextAlignment(align_left)
+            item_pay.setToolTip(pay_dt)
             self.table_collections.setItem(idx, 3, item_pay)
             
-            item_amount = QTableWidgetItem(f"Rs. {float(item['amount_received']):,.2f}")
+            formatted_amount = ConfigManager.format_currency(item['amount_received'])
+            item_amount = QTableWidgetItem(formatted_amount)
             item_amount.setTextAlignment(align_left)
+            item_amount.setToolTip(formatted_amount)
             self.table_collections.setItem(idx, 4, item_amount)
 
 

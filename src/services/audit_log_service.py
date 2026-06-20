@@ -1,5 +1,6 @@
 import socket
 import urllib.request
+import threading
 from datetime import date, datetime
 from typing import Optional, Dict, Any, List
 from src.repositories.audit_log_repository import AuditLogRepository
@@ -7,29 +8,46 @@ from src.services.auth_service import AuthService
 
 class AuditLogService:
     _instance = None
+    _cached_ip = None
+    _ip_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super().__new__(cls)
             cls._instance.repo = AuditLogRepository()
             cls._instance.auth = AuthService()
+            cls._instance.start_ip_lookup()
         return cls._instance
+
+    def start_ip_lookup(self):
+        """Starts a background daemon thread to lookup public IP once."""
+        def fetch_ip():
+            ip = "127.0.0.1"
+            try:
+                with urllib.request.urlopen("https://api.ipify.org", timeout=2.0) as response:
+                    ip = response.read().decode('utf-8').strip()
+            except Exception:
+                try:
+                    ip = socket.gethostbyname(socket.gethostname())
+                except Exception:
+                    pass
+            with AuditLogService._ip_lock:
+                AuditLogService._cached_ip = ip
+
+        threading.Thread(target=fetch_ip, daemon=True).start()
 
     @staticmethod
     def get_public_ip() -> str:
         """
-        Fetches public IP from api.ipify.org with fallback to local machine IP.
+        Returns cached public IP instantly or resolves local IP immediately without blocking.
         """
+        with AuditLogService._ip_lock:
+            if AuditLogService._cached_ip is not None:
+                return AuditLogService._cached_ip
         try:
-            # Attempt to fetch public IP
-            with urllib.request.urlopen("https://api.ipify.org", timeout=2.0) as response:
-                return response.read().decode('utf-8').strip()
+            return socket.gethostbyname(socket.gethostname())
         except Exception:
-            try:
-                # Fallback to local network IP
-                return socket.gethostbyname(socket.gethostname())
-            except Exception:
-                return "127.0.0.1"
+            return "127.0.0.1"
 
     def log_action(self, action: str, user_email: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
@@ -64,3 +82,15 @@ class AuditLogService:
         except Exception as e:
             print(f"Error retrieving audit logs: {e}")
             return []
+
+    def clear_logs(self, user_email: Optional[str] = None) -> bool:
+        """
+        Deletes all logs and writes a final audit log entry about this deletion.
+        """
+        try:
+            self.repo.clear_all()
+            self.log_action("Cleared all audit logs", user_email=user_email)
+            return True
+        except Exception as e:
+            print(f"Error clearing audit logs: {e}")
+            return False

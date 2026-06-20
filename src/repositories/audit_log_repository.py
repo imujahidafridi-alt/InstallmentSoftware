@@ -33,3 +33,9 @@ class AuditLogRepository(BaseRepository):
         
         response = db_query.order("created_at", desc=True).execute()
         return response.data or []
+
+    def clear_all(self):
+        """
+        Deletes all audit logs safely by targeting non-matching dummy UUID.
+        """
+        self.db.table("audit_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()

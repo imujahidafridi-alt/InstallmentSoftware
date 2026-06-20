@@ -23,11 +23,27 @@ class AuditLogWorker(QThread):
         except Exception as e:
             self.failed.emit(str(e))
 
+class ClearLogsWorker(QThread):
+    finished = pyqtSignal(bool)
+    failed = pyqtSignal(str)
+
+    def __init__(self, service: AuditLogService):
+        super().__init__()
+        self.service = service
+
+    def run(self):
+        try:
+            success = self.service.clear_logs()
+            self.finished.emit(success)
+        except Exception as e:
+            self.failed.emit(str(e))
+
 class AuditLogView(QWidget):
     def __init__(self):
         super().__init__()
         self.service = AuditLogService()
         self.worker = None
+        self.clear_worker = None
         self.init_ui()
 
     def init_ui(self):
@@ -79,16 +95,26 @@ class AuditLogView(QWidget):
         filter_layout.addWidget(self.btn_reset_filters)
 
         filter_layout.addStretch()
+        self.btn_clear_logs = QPushButton("Clear Audit Logs")
+        self.btn_clear_logs.setObjectName("btn_danger")
+        self.btn_clear_logs.clicked.connect(self.on_clear_logs_clicked)
+        filter_layout.addWidget(self.btn_clear_logs)
         main_layout.addWidget(filter_panel)
 
         # Audit Logs Table
         self.table_logs = QTableWidget(0, 5)
         self.table_logs.setHorizontalHeaderLabels(["User", "Action performed", "Date", "Time", "IP Address"])
+        self.table_logs.setWordWrap(True)
         self.table_logs.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table_logs.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_logs.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch) # Give action details maximum width
+        self.table_logs.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_logs.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_logs.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.table_logs.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table_logs.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table_logs.verticalHeader().setVisible(False)
+        self.table_logs.verticalHeader().setMinimumSectionSize(38)
         main_layout.addWidget(self.table_logs)
 
     def reset_filters(self, *args):
@@ -135,9 +161,56 @@ class AuditLogView(QWidget):
             self.table_logs.setItem(idx, 2, date_item)
             self.table_logs.setItem(idx, 3, time_item)
             self.table_logs.setItem(idx, 4, ip_item)
+            
+        self.table_logs.resizeRowsToContents()
 
     def on_fetch_failed(self, error: str):
         if hasattr(self.window(), 'show_notification'):
             self.window().show_notification(f"Failed to load audit logs: {error}", "error")
         else:
             QMessageBox.critical(self, "Error", f"Failed to load audit logs:\n{error}")
+
+    def on_clear_logs_clicked(self):
+        reply = QMessageBox.question(
+            self,
+            "Confirm Clear Logs",
+            "Are you sure you want to delete all audit logs? This action is permanent and cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        if self.clear_worker and self.clear_worker.isRunning():
+            return
+
+        self.btn_clear_logs.setEnabled(False)
+        self.btn_clear_logs.setText("Clearing...")
+
+        self.clear_worker = ClearLogsWorker(self.service)
+        self.clear_worker.finished.connect(self.on_clear_finished)
+        self.clear_worker.failed.connect(self.on_clear_failed)
+        self.clear_worker.start()
+
+    def on_clear_finished(self, success: bool):
+        self.btn_clear_logs.setEnabled(True)
+        self.btn_clear_logs.setText("Clear Audit Logs")
+        if success:
+            if hasattr(self.window(), 'show_notification'):
+                self.window().show_notification("All audit logs cleared successfully.", "success")
+            else:
+                QMessageBox.information(self, "Success", "All audit logs cleared successfully.")
+            self.load_audit_logs()
+        else:
+            if hasattr(self.window(), 'show_notification'):
+                self.window().show_notification("Failed to clear audit logs.", "error")
+            else:
+                QMessageBox.critical(self, "Error", "Failed to clear audit logs.")
+
+    def on_clear_failed(self, error: str):
+        self.btn_clear_logs.setEnabled(True)
+        self.btn_clear_logs.setText("Clear Audit Logs")
+        if hasattr(self.window(), 'show_notification'):
+            self.window().show_notification(f"Error: {error}", "error")
+        else:
+            QMessageBox.critical(self, "Error", f"Error occurred while clearing logs:\n{error}")

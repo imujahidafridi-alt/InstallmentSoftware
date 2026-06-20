@@ -189,16 +189,6 @@ class MainWindow(QMainWindow):
         self.txt_global_search.returnPressed.connect(self.perform_global_search)
         topnav_layout.addWidget(self.txt_global_search)
 
-        # Quick Actions
-        self.btn_quick_sale = QPushButton("New Sale")
-        self.btn_quick_sale.clicked.connect(lambda: self.switch_view(4))
-        topnav_layout.addWidget(self.btn_quick_sale)
-
-        self.btn_quick_pay = QPushButton("Receive Payment")
-        self.btn_quick_pay.setObjectName("btn_secondary")
-        self.btn_quick_pay.clicked.connect(lambda: self.switch_view(5))
-        topnav_layout.addWidget(self.btn_quick_pay)
-
         topnav_layout.addStretch()
 
         # Digital Clock
@@ -265,7 +255,6 @@ class MainWindow(QMainWindow):
             self.view_sale.load_dropdowns_data()
         elif index == 5:
             self.view_ledger.load_ledgers_dropdown()
-            self.view_ledger.load_selected_ledger()
         elif index == 6:
             self.view_report.load_report_data()
         elif index == 7:
@@ -340,7 +329,7 @@ class MainWindow(QMainWindow):
         """Safely stops and reaps all active background threads to avoid destruction errors."""
         views = [
             self.view_dashboard, self.view_due_overdue, self.view_customer, self.view_device, 
-            self.view_sale, self.view_ledger, self.view_report, self.view_audit
+            self.view_sale, self.view_ledger, self.view_report, self.view_audit, self.view_settings
         ]
         
         # Stop global search worker if running
@@ -355,6 +344,8 @@ class MainWindow(QMainWindow):
 
         # Stop all subview workers
         for view in views:
+            if not view:
+                continue
             # Check dashboard view workers
             if hasattr(view, "sync_worker") and view.sync_worker and view.sync_worker.isRunning():
                 view.sync_worker.terminate()
@@ -363,6 +354,29 @@ class MainWindow(QMainWindow):
             if hasattr(view, "worker") and view.worker and view.worker.isRunning():
                 view.worker.terminate()
                 view.worker.wait()
+            # Check transactional write/update workers
+            if hasattr(view, "commit_worker") and view.commit_worker and view.commit_worker.isRunning():
+                view.commit_worker.terminate()
+                view.commit_worker.wait()
+            if hasattr(view, "save_worker") and view.save_worker and view.save_worker.isRunning():
+                view.save_worker.terminate()
+                view.save_worker.wait()
+            if hasattr(view, "delete_worker") and view.delete_worker and view.delete_worker.isRunning():
+                view.delete_worker.terminate()
+                view.delete_worker.wait()
+            if hasattr(view, "payment_worker") and view.payment_worker and view.payment_worker.isRunning():
+                view.payment_worker.terminate()
+                view.payment_worker.wait()
+            if hasattr(view, "reschedule_worker") and view.reschedule_worker and view.reschedule_worker.isRunning():
+                view.reschedule_worker.terminate()
+                view.reschedule_worker.wait()
+            if hasattr(view, "pdf_worker") and view.pdf_worker and view.pdf_worker.isRunning():
+                view.pdf_worker.terminate()
+                view.pdf_worker.wait()
+            # Check other views having 'clear_worker'
+            if hasattr(view, "clear_worker") and view.clear_worker and view.clear_worker.isRunning():
+                view.clear_worker.terminate()
+                view.clear_worker.wait()
             # Check ledger view list_worker and detail_worker
             if hasattr(view, "list_worker") and view.list_worker and view.list_worker.isRunning():
                 view.list_worker.terminate()
@@ -370,5 +384,15 @@ class MainWindow(QMainWindow):
             if hasattr(view, "detail_worker") and view.detail_worker and view.detail_worker.isRunning():
                 view.detail_worker.terminate()
                 view.detail_worker.wait()
+            # Check active search workers array (e.g. search workers in customer/device views)
+            if hasattr(view, "active_workers") and isinstance(view.active_workers, list):
+                for w in list(view.active_workers):
+                    if w and w.isRunning():
+                        w.terminate()
+                        w.wait()
+            # Check settings reset worker
+            if hasattr(view, "reset_worker") and view.reset_worker and view.reset_worker.isRunning():
+                view.reset_worker.terminate()
+                view.reset_worker.wait()
                 
         event.accept()

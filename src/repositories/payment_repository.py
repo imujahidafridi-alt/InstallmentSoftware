@@ -94,11 +94,17 @@ class PaymentRepository(BaseRepository):
             
             remaining_for_inst = inst_amount - already_paid
             
-            if amount_remaining >= remaining_for_inst:
-                # We can fully pay off this installment
+            from src.config import ConfigManager
+            dec = ConfigManager.get_decimal_places()
+            tolerance = 0.99 if dec == 0 else 0.01
+
+            if amount_remaining >= (remaining_for_inst - tolerance):
+                # We can fully pay off this installment (with tolerance for UI truncation)
+                apply_amt = min(amount_remaining, remaining_for_inst)
+                
                 payment_record = {
                     "installment_id": inst_id,
-                    "amount_received": round(remaining_for_inst, 2),
+                    "amount_received": round(apply_amt, 2),
                     "payment_date": payment_date,
                     "notes": notes if amount_remaining == total_amount_received else f"{notes} (Split allocation)",
                     "payment_method": payment_method
@@ -115,7 +121,7 @@ class PaymentRepository(BaseRepository):
                     "paid_date": payment_date
                 }).eq("id", inst_id).execute()
                 
-                amount_remaining -= remaining_for_inst
+                amount_remaining -= apply_amt
             else:
                 # Partial payment for this installment
                 payment_record = {

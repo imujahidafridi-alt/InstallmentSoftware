@@ -200,7 +200,7 @@ QHeaderView {
 QHeaderView::section {
     background-color: #F8FAFC;
     color: #64748B;
-    padding: 8px;
+    padding: 10px 12px;
     border: none;
     font-weight: bold;
 }

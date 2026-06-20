@@ -115,3 +115,36 @@ def test_customer_reminders_exclusion():
     assert "Enabled Cust" in due_today_names
     assert "Disabled Cust" not in due_today_names
 
+
+def test_audit_log_clear():
+    from src.repositories.audit_log_repository import AuditLogRepository
+    
+    repo = AuditLogRepository()
+    repo._db = MagicMock()
+    
+    delete_mock = MagicMock()
+    neq_mock = MagicMock()
+    execute_mock = MagicMock()
+    
+    repo.db.table.return_value = delete_mock
+    delete_mock.delete.return_value = neq_mock
+    neq_mock.neq.return_value = execute_mock
+    
+    repo.clear_all()
+    
+    repo.db.table.assert_called_once_with("audit_logs")
+    delete_mock.delete.assert_called_once()
+    neq_mock.neq.assert_called_once_with("id", "00000000-0000-0000-0000-000000000000")
+    execute_mock.execute.assert_called_once()
+
+
+def test_audit_log_service_clear_logs():
+    service = AuditLogService()
+    service.repo = MagicMock()
+    
+    with patch.object(service, "log_action") as mock_log_action:
+        success = service.clear_logs(user_email="admin@asifmobile.com")
+        assert success is True
+        service.repo.clear_all.assert_called_once()
+        mock_log_action.assert_called_once_with("Cleared all audit logs", user_email="admin@asifmobile.com")
+

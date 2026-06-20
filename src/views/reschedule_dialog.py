@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QDateEdit, QPushButton, QMessageBox
 from PyQt6.QtCore import QDate, Qt
+from src.config import ConfigManager
 
 class RescheduleDialog(QDialog):
     def __init__(self, parent=None, remaining_balance: float = 0.0):
@@ -22,7 +23,8 @@ class RescheduleDialog(QDialog):
         layout.addWidget(lbl_header)
 
         # Show Balance to Reschedule
-        lbl_balance = QLabel(f"Reschedule Balance: Rs. {remaining_balance:,.2f}")
+        formatted_balance = ConfigManager.format_currency(remaining_balance)
+        lbl_balance = QLabel(f"Reschedule Balance: {formatted_balance}")
         lbl_balance.setStyleSheet("font-weight: bold; color: #DC2626;")
         layout.addWidget(lbl_balance)
 

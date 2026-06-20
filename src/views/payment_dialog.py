@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QDateEdit, QTextEdit, QPushButton, QMessageBox, QComboBox
 from PyQt6.QtCore import QDate, Qt
+from src.config import ConfigManager
 
 class PaymentDialog(QDialog):
     def __init__(self, parent=None, default_amount: float = 0.0):
@@ -28,7 +29,11 @@ class PaymentDialog(QDialog):
         self.txt_amount = QLineEdit()
         self.txt_amount.setPlaceholderText("0.00")
         if default_amount > 0:
-            self.txt_amount.setText(f"{default_amount:.2f}")
+            dec = ConfigManager.get_decimal_places()
+            if dec == 0:
+                self.txt_amount.setText(f"{default_amount:.0f}")
+            else:
+                self.txt_amount.setText(f"{default_amount:.2f}")
         layout.addWidget(self.txt_amount)
 
         # Payment Date

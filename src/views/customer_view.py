@@ -38,6 +38,40 @@ class CustomerWorker(QThread):
             self.sync_failed.emit(str(e))
 
 
+class CustomerSaveWorker(QThread):
+    success = pyqtSignal(str)
+    failed = pyqtSignal(str)
+
+    def __init__(self, vm: CustomerViewModel, customer_id: str, name: str, father: str, mobile: str, address: str, remarks: str, reminders_enabled: bool):
+        super().__init__()
+        self.vm = vm
+        self.customer_id = customer_id
+        self.name = name
+        self.father = father
+        self.mobile = mobile
+        self.address = address
+        self.remarks = remarks
+        self.reminders_enabled = reminders_enabled
+
+    def run(self):
+        try:
+            reminders_status = "On" if self.reminders_enabled else "Off"
+            if self.customer_id:
+                self.vm.update_customer(
+                    self.customer_id, self.name, self.father, self.mobile,
+                    self.address, self.remarks, self.reminders_enabled
+                )
+                self.success.emit(f"Customer details updated successfully. Reminders: {reminders_status}")
+            else:
+                self.vm.register_customer(
+                    self.name, self.father, self.mobile,
+                    self.address, self.remarks, self.reminders_enabled
+                )
+                self.success.emit(f"Customer registered successfully. Reminders: {reminders_status}")
+        except Exception as e:
+            self.failed.emit(str(e))
+
+
 class CustomerView(QWidget):
     def __init__(self):
         super().__init__()
@@ -45,6 +79,7 @@ class CustomerView(QWidget):
         self.cache_customers = CacheService.get("customers")
         self.displayed_customers = []
         self.worker = None
+        self.save_worker = None
 
 
         self.active_workers = []
@@ -153,10 +188,13 @@ class CustomerView(QWidget):
         list_layout.addLayout(search_layout)
  
         # Customers table
-        self.table_customers = QTableWidget(0, 5)
-        self.table_customers.setHorizontalHeaderLabels(["Name", "Father Name", "Mobile", "Address", "Reminders"])
+        self.table_customers = QTableWidget(0, 6)
+        self.table_customers.setHorizontalHeaderLabels(["S.No", "Name", "Father Name", "Mobile", "Address", "Reminders"])
         self.table_customers.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table_customers.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_customers.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.table_customers.verticalHeader().setVisible(False)
+        self.table_customers.verticalHeader().setDefaultSectionSize(38)
         self.table_customers.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table_customers.doubleClicked.connect(self.on_table_double_clicked)
         list_layout.addWidget(self.table_customers)
@@ -212,7 +250,10 @@ class CustomerView(QWidget):
     def on_load_success(self, customers: list):
         self.cache_customers = customers
         CacheService.set("customers", customers)
-        self.populate_table(customers)
+        # Only repopulate if no search is active — prevents race condition
+        # where background load overwrites a filtered search result in the table
+        if not self.current_search_query:
+            self.populate_table(customers)
         print("[Customers] Customer records updated successfully.")
 
     def on_load_not_needed(self):
@@ -223,30 +264,41 @@ class CustomerView(QWidget):
         print(f"Customer load failed: {error_msg}")
 
     def populate_table(self, customers):
-        self.displayed_customers = customers
+        self.displayed_customers = list(customers)  # Snapshot to prevent race condition
         self.table_customers.setRowCount(0)
+        align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         for idx, cust in enumerate(customers):
             self.table_customers.insertRow(idx)
-            
-            item_name = QTableWidgetItem(cust["name"])
-            item_father = QTableWidgetItem(cust["father_name"])
-            item_mobile = QTableWidgetItem(cust["mobile"])
-            item_address = QTableWidgetItem(cust["address"] or "-")
-            rem_val = cust.get("reminders_enabled", True)
+
+            item_sno = QTableWidgetItem(str(idx + 1))
+            item_sno.setTextAlignment(align_center)
+
+            addr_text = cust["address"] or "-"
+            rem_val   = cust.get("reminders_enabled", True)
+
+            item_name      = QTableWidgetItem(cust["name"])
+            item_father    = QTableWidgetItem(cust["father_name"])
+            item_mobile    = QTableWidgetItem(cust["mobile"])
+            item_address   = QTableWidgetItem(addr_text)
             item_reminders = QTableWidgetItem("On" if rem_val else "Off")
-            
-            item_name.setTextAlignment(align_left)
-            item_father.setTextAlignment(align_left)
-            item_mobile.setTextAlignment(align_left)
-            item_address.setTextAlignment(align_left)
-            item_reminders.setTextAlignment(align_left)
-            
-            self.table_customers.setItem(idx, 0, item_name)
-            self.table_customers.setItem(idx, 1, item_father)
-            self.table_customers.setItem(idx, 2, item_mobile)
-            self.table_customers.setItem(idx, 3, item_address)
-            self.table_customers.setItem(idx, 4, item_reminders)
+
+            # Tooltips so full text shows on hover (useful for long addresses)
+            item_name.setToolTip(cust["name"])
+            item_father.setToolTip(cust["father_name"])
+            item_mobile.setToolTip(cust["mobile"])
+            item_address.setToolTip(addr_text)
+            item_reminders.setToolTip("Reminders: " + ("On" if rem_val else "Off"))
+
+            for item in (item_name, item_father, item_mobile, item_address, item_reminders):
+                item.setTextAlignment(align_left)
+
+            self.table_customers.setItem(idx, 0, item_sno)
+            self.table_customers.setItem(idx, 1, item_name)
+            self.table_customers.setItem(idx, 2, item_father)
+            self.table_customers.setItem(idx, 3, item_mobile)
+            self.table_customers.setItem(idx, 4, item_address)
+            self.table_customers.setItem(idx, 5, item_reminders)
 
     def show_toast(self, message: str, type: str = "info"):
         if hasattr(self.window(), 'show_notification'):
@@ -266,32 +318,38 @@ class CustomerView(QWidget):
         address = self.txt_address.toPlainText().strip()
         remarks = self.txt_remarks.toPlainText().strip()
         reminders_enabled = self.radio_reminders_on.isChecked()
+
+        # Synchronous validation first
+        is_valid, errors = self.vm.validate_customer_data(name, father, mobile)
+        if not is_valid:
+            self.show_toast("\n".join(errors), "warning")
+            return
         
+        if self.save_worker and self.save_worker.isRunning():
+            self.save_worker.terminate()
+            self.save_worker.wait()
+
         self.btn_submit.setEnabled(False)
         self.btn_submit.setText("Updating..." if self.current_edit_customer_id else "Saving...")
-        
-        try:
-            reminders_status = "On" if reminders_enabled else "Off"
-            if self.current_edit_customer_id:
-                self.vm.update_customer(self.current_edit_customer_id, name, father, mobile, address, remarks, reminders_enabled)
-                self.show_toast(f"Customer details updated successfully. Reminders: {reminders_status}", "success")
-            else:
-                self.vm.register_customer(name, father, mobile, address, remarks, reminders_enabled)
-                self.show_toast(f"Customer registered successfully. Reminders: {reminders_status}", "success")
-            
-            # Reset Form
-            self.cancel_edit()
-            
-            # Refresh List
-            self.load_customers()
-        except ValueError as ve:
-            self.show_toast(str(ve), "warning")
-            self.btn_submit.setEnabled(True)
-            self.btn_submit.setText("Update Customer" if self.current_edit_customer_id else "Save Customer")
-        except Exception as e:
-            self.show_toast(f"Failed to save customer record:\n{e}", "error")
-            self.btn_submit.setEnabled(True)
-            self.btn_submit.setText("Update Customer" if self.current_edit_customer_id else "Save Customer")
+
+        self.save_worker = CustomerSaveWorker(
+            self.vm, self.current_edit_customer_id, name, father, mobile, address, remarks, reminders_enabled
+        )
+        self.save_worker.success.connect(self.on_save_success)
+        self.save_worker.failed.connect(self.on_save_failed)
+        self.save_worker.start()
+
+    def on_save_success(self, message: str):
+        self.show_toast(message, "success")
+        # Reset Form
+        self.cancel_edit()
+        # Refresh List
+        self.load_customers()
+
+    def on_save_failed(self, error_msg: str):
+        self.show_toast(f"Failed to save customer record:\n{error_msg}", "error")
+        self.btn_submit.setEnabled(True)
+        self.btn_submit.setText("Update Customer" if self.current_edit_customer_id else "Save Customer")
 
     def cancel_edit(self):
         self.current_edit_customer_id = None
@@ -309,25 +367,37 @@ class CustomerView(QWidget):
 
     def on_table_double_clicked(self, model_index):
         row = model_index.row()
-        customers = self.displayed_customers
-        if not customers or row >= len(customers):
+        # Use S.no column's data to safely look up row in displayed_customers.
+        # This avoids off-by-one mismatches when the table was repopulated
+        # with a search result while a background worker was still running.
+        sno_item = self.table_customers.item(row, 0)
+        if sno_item is None:
             return
-            
-        cust = customers[row]
+        try:
+            # S.no is 1-based, convert to 0-based index into displayed_customers
+            cust_index = int(sno_item.text()) - 1
+        except ValueError:
+            return
+
+        customers = self.displayed_customers
+        if not customers or cust_index >= len(customers):
+            return
+
+        cust = customers[cust_index]
         self.current_edit_customer_id = cust["id"]
-        
+
         self.txt_name.setText(cust["name"])
         self.txt_father_name.setText(cust["father_name"])
         self.txt_mobile.setText(cust["mobile"])
         self.txt_address.setPlainText(cust["address"] or "")
         self.txt_remarks.setPlainText(cust["remarks"] or "")
-        
+
         rem_val = cust.get("reminders_enabled", True)
         if rem_val:
             self.radio_reminders_on.setChecked(True)
         else:
             self.radio_reminders_off.setChecked(True)
-        
+
         self.lbl_form_title.setText("Edit Customer Details")
         self.btn_submit.setText("Update Customer")
         self.btn_submit.setEnabled(True)

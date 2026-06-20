@@ -1,3 +1,4 @@
+from typing import Optional, List
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel, QLineEdit, 
     QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, 
@@ -8,7 +9,7 @@ from src.viewmodels.device_viewmodel import DeviceViewModel
 from src.services.cache_service import CacheService
 
 class DeviceWorker(QThread):
-    sync_finished = pyqtSignal(list)
+    sync_finished = pyqtSignal(list, list)
     sync_not_needed = pyqtSignal()
     sync_failed = pyqtSignal(str)
 
@@ -19,23 +20,82 @@ class DeviceWorker(QThread):
 
     def run(self):
         try:
+            from src.repositories.sale_repository import SaleRepository
+            sale_repo = SaleRepository()
             if self.query is not None:
                 print(f"[Devices] Querying search for query: '{self.query}'")
                 devices = self.vm.search_devices(self.query)
-                self.sync_finished.emit(devices)
+                sales = sale_repo.get_all_with_details()
+                self.sync_finished.emit(devices, sales)
             else:
-                changed = CacheService.check_and_update_state("devices", self.vm.repo.db)
-                has_cache = CacheService.get("devices") is not None
-                if not changed and has_cache:
+                changed_dev = CacheService.check_and_update_state("devices", self.vm.repo.db)
+                changed_sales = CacheService.check_and_update_state("sales", self.vm.repo.db)
+                has_cache = (
+                    CacheService.get("devices") is not None and
+                    CacheService.get("device_sales") is not None
+                )
+                if not changed_dev and not changed_sales and has_cache:
                     print("[Devices] No database changes detected. Loading device inventory from persistent cache.")
                     self.sync_not_needed.emit()
                     return
 
                 print("[Devices] Database changes detected. Updating device inventory from database...")
                 devices = self.vm.get_all_devices()
-                self.sync_finished.emit(devices)
+                sales = sale_repo.get_all_with_details()
+                self.sync_finished.emit(devices, sales)
         except Exception as e:
             self.sync_failed.emit(str(e))
+
+
+class DeviceSaveWorker(QThread):
+    success = pyqtSignal(str)
+    failed = pyqtSignal(str)
+
+    def __init__(self, vm: DeviceViewModel, device_id: Optional[str], name: str, brand: str, model: str, ram: str, rom: str, sim_type: int, imeis: list):
+        super().__init__()
+        self.vm = vm
+        self.device_id = device_id
+        self.name = name
+        self.brand = brand
+        self.model = model
+        self.ram = ram
+        self.rom = rom
+        self.sim_type = sim_type
+        self.imeis = imeis
+
+    def run(self):
+        try:
+            if self.device_id:
+                self.vm.update_device(
+                    self.device_id, self.name, self.brand, self.model,
+                    self.ram, self.rom, self.sim_type, self.imeis
+                )
+                self.success.emit("Device details updated successfully.")
+            else:
+                self.vm.register_device(
+                    self.name, self.brand, self.model,
+                    self.ram, self.rom, self.sim_type, self.imeis
+                )
+                self.success.emit("Device saved successfully to inventory.")
+        except Exception as e:
+            self.failed.emit(str(e))
+
+
+class DeviceDeleteWorker(QThread):
+    success = pyqtSignal()
+    failed = pyqtSignal(str)
+
+    def __init__(self, vm: DeviceViewModel, device_id: str):
+        super().__init__()
+        self.vm = vm
+        self.device_id = device_id
+
+    def run(self):
+        try:
+            self.vm.delete_device(self.device_id)
+            self.success.emit()
+        except Exception as e:
+            self.failed.emit(str(e))
 
 
 class DeviceView(QWidget):
@@ -43,11 +103,16 @@ class DeviceView(QWidget):
         super().__init__()
         self.vm = DeviceViewModel()
         self.cache_devices = CacheService.get("devices")
+        self.cache_sales = CacheService.get("device_sales")
         self.worker = None
+        self.save_worker = None
+        self.delete_worker = None
 
 
         self.active_workers = []
         self.current_search_query = ""
+        self.current_edit_device_id = None
+        self.displayed_devices = []
         self.search_timer = QTimer(self)
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.perform_search)
@@ -67,9 +132,9 @@ class DeviceView(QWidget):
         form_layout = QVBoxLayout(form_card)
         form_layout.setSpacing(8)
         
-        lbl_form_title = QLabel("Add New Device")
-        lbl_form_title.setObjectName("lbl_section_title")
-        form_layout.addWidget(lbl_form_title)
+        self.lbl_form_title = QLabel("Add New Device")
+        self.lbl_form_title.setObjectName("lbl_section_title")
+        form_layout.addWidget(self.lbl_form_title)
         
         # General Fields
         form_layout.addWidget(QLabel("Device Name *"))
@@ -156,6 +221,20 @@ class DeviceView(QWidget):
         self.btn_submit = QPushButton("Save Device")
         self.btn_submit.clicked.connect(self.save_device)
         form_layout.addWidget(self.btn_submit)
+
+        # Cancel Edit Button
+        self.btn_cancel_edit = QPushButton("Cancel Edit")
+        self.btn_cancel_edit.setObjectName("btn_secondary")
+        self.btn_cancel_edit.clicked.connect(self.cancel_edit)
+        self.btn_cancel_edit.setVisible(False)
+        form_layout.addWidget(self.btn_cancel_edit)
+
+        # Delete Device Button
+        self.btn_delete = QPushButton("Delete Device")
+        self.btn_delete.setObjectName("btn_danger")
+        self.btn_delete.clicked.connect(self.delete_device)
+        self.btn_delete.setVisible(False)
+        form_layout.addWidget(self.btn_delete)
         
         form_layout.addStretch()
         main_layout.addWidget(form_card)
@@ -173,17 +252,80 @@ class DeviceView(QWidget):
         self.txt_search.textChanged.connect(self.search_devices)
         search_layout.addWidget(self.txt_search)
         
+        # Available / Sold Toggle buttons
+        self.btn_show_available = QPushButton("Available")
+        self.btn_show_available.setCheckable(True)
+        self.btn_show_available.setChecked(True)
+        self.btn_show_available.setObjectName("toggle_btn_left")
+        self.btn_show_available.setFixedWidth(90)
+        self.btn_show_available.setFixedHeight(30)
+        
+        self.btn_show_sold = QPushButton("Sold")
+        self.btn_show_sold.setCheckable(True)
+        self.btn_show_sold.setChecked(False)
+        self.btn_show_sold.setObjectName("toggle_btn_right")
+        self.btn_show_sold.setFixedWidth(90)
+        self.btn_show_sold.setFixedHeight(30)
+
+        toggle_qss = (
+            "QPushButton#toggle_btn_left {"
+            "  background-color: #E2E8F0;"
+            "  color: #475569;"
+            "  border: 1px solid #CBD5E1;"
+            "  border-top-left-radius: 6px;"
+            "  border-bottom-left-radius: 6px;"
+            "  border-top-right-radius: 0px;"
+            "  border-bottom-right-radius: 0px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton#toggle_btn_left:checked {"
+            "  background-color: #3B82F6;"
+            "  color: #FFFFFF;"
+            "  border-color: #3B82F6;"
+            "}"
+            "QPushButton#toggle_btn_right {"
+            "  background-color: #E2E8F0;"
+            "  color: #475569;"
+            "  border: 1px solid #CBD5E1;"
+            "  border-top-left-radius: 0px;"
+            "  border-bottom-left-radius: 0px;"
+            "  border-top-right-radius: 6px;"
+            "  border-bottom-right-radius: 6px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton#toggle_btn_right:checked {"
+            "  background-color: #3B82F6;"
+            "  color: #FFFFFF;"
+            "  border-color: #3B82F6;"
+            "}"
+        )
+        self.btn_show_available.setStyleSheet(toggle_qss)
+        self.btn_show_sold.setStyleSheet(toggle_qss)
+
+        self.toggle_group = QButtonGroup(self)
+        self.toggle_group.addButton(self.btn_show_available)
+        self.toggle_group.addButton(self.btn_show_sold)
+        self.toggle_group.buttonToggled.connect(self.on_filter_toggle_changed)
+
+        search_layout.addWidget(self.btn_show_available)
+        search_layout.addWidget(self.btn_show_sold)
+
         self.btn_refresh = QPushButton("Refresh Inventory")
         self.btn_refresh.setObjectName("btn_secondary")
         self.btn_refresh.clicked.connect(self.load_devices)
         search_layout.addWidget(self.btn_refresh)
         list_layout.addLayout(search_layout)
 
-        self.table_devices = QTableWidget(0, 5)
-        self.table_devices.setHorizontalHeaderLabels(["Device Name", "Brand / Model", "RAM/ROM", "SIM Type", "IMEIs"])
+        self.table_devices = QTableWidget(0, 6)
+        self.table_devices.setHorizontalHeaderLabels(["S.No", "Device Name", "Brand / Model", "RAM/ROM", "SIM Type", "IMEIs"])
         self.table_devices.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table_devices.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_devices.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.table_devices.verticalHeader().setVisible(False)
+        self.table_devices.verticalHeader().setDefaultSectionSize(38)
+        self.table_devices.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         list_layout.addWidget(self.table_devices)
+        self.table_devices.doubleClicked.connect(self.on_table_double_clicked)
         main_layout.addWidget(list_container, 7)
 
 
@@ -191,7 +333,7 @@ class DeviceView(QWidget):
 
         # Populate cache immediately if available
         if self.cache_devices:
-            self.populate_table(self.cache_devices)
+            self.populate_table(self.cache_devices, self.cache_sales or [])
 
 
     def adjust_imei_fields(self):
@@ -206,7 +348,7 @@ class DeviceView(QWidget):
         """Fetches all device logs and populates table asynchronously."""
         # 1. Populate cache immediately if available
         if self.cache_devices:
-            self.populate_table(self.cache_devices)
+            self.populate_table(self.cache_devices, self.cache_sales or [])
 
         # 2. Terminate running worker
         if self.worker and self.worker.isRunning():
@@ -233,20 +375,24 @@ class DeviceView(QWidget):
         query = self.current_search_query
         worker = DeviceWorker(self.vm, query)
         self.active_workers.append(worker)
-        worker.sync_finished.connect(lambda devices: self.on_search_success(devices, query))
+        worker.sync_finished.connect(lambda devices, sales: self.on_search_success(devices, sales, query))
         worker.finished.connect(lambda: self.active_workers.remove(worker) if worker in self.active_workers else None)
         worker.start()
 
-    def on_search_success(self, devices, query):
+    def on_search_success(self, devices, sales, query):
         if query == self.current_search_query:
-            self.populate_table(devices)
+            self.populate_table(devices, sales)
             if not devices and query:
                 self.show_toast(f'No device records found for "{query}".', "warning")
 
-    def on_load_success(self, devices: list):
+    def on_load_success(self, devices: list, sales: list):
         self.cache_devices = devices
+        self.cache_sales   = sales
         CacheService.set("devices", devices)
-        self.populate_table(devices)
+        CacheService.set("device_sales", sales)
+        # Only repopulate if no search is active — prevents race condition
+        if not self.current_search_query:
+            self.populate_table(devices, sales)
         print("[Devices] Device inventory updated successfully.")
 
     def on_load_not_needed(self):
@@ -255,36 +401,79 @@ class DeviceView(QWidget):
     def on_load_failed(self, error_msg: str):
         print(f"Device load failed: {error_msg}")
 
-    def populate_table(self, devices):
+    def on_filter_toggle_changed(self, button, checked):
+        if checked:
+            devices_to_show = getattr(self, "last_fetched_devices", None) or self.cache_devices
+            if devices_to_show:
+                self.populate_table(devices_to_show, self.cache_sales or [])
+
+    def populate_table(self, devices, sales):
+        self.last_fetched_devices = devices
+        self.displayed_devices = []
+        
+        sold_ids = {s["device_id"] for s in sales if "device_id" in s}
+
         self.table_devices.setRowCount(0)
+        align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        for idx, dev in enumerate(devices):
-            self.table_devices.insertRow(idx)
-            
+        
+        show_only_sold = self.btn_show_sold.isChecked()
+        
+        row_idx = 0
+        for dev in devices:
+            is_sold = dev["id"] in sold_ids
+            if show_only_sold != is_sold:
+                continue
+
+            self.displayed_devices.append(dev)
+
+            self.table_devices.insertRow(row_idx)
+
+            item_sno = QTableWidgetItem(str(row_idx + 1))
+            item_sno.setTextAlignment(align_center)
+            self.table_devices.setItem(row_idx, 0, item_sno)
+
             item_name = QTableWidgetItem(dev["name"])
             item_name.setTextAlignment(align_left)
-            self.table_devices.setItem(idx, 0, item_name)
-            
-            item_brand_model = QTableWidgetItem(f"{dev['brand']} / {dev['model']}")
+            item_name.setToolTip(dev["name"])
+            self.table_devices.setItem(row_idx, 1, item_name)
+
+            brand_model = f"{dev['brand']} / {dev['model']}"
+            item_brand_model = QTableWidgetItem(brand_model)
             item_brand_model.setTextAlignment(align_left)
-            self.table_devices.setItem(idx, 1, item_brand_model)
-            
-            item_ram_rom = QTableWidgetItem(f"{dev['ram']} / {dev['rom']}")
+            item_brand_model.setToolTip(brand_model)
+            self.table_devices.setItem(row_idx, 2, item_brand_model)
+
+            ram_rom = f"{dev['ram']} / {dev['rom']}"
+            item_ram_rom = QTableWidgetItem(ram_rom)
             item_ram_rom.setTextAlignment(align_left)
-            self.table_devices.setItem(idx, 2, item_ram_rom)
-            
-            item_sim = QTableWidgetItem(f"{dev['sim_type']} SIM")
+            item_ram_rom.setToolTip(ram_rom)
+            self.table_devices.setItem(row_idx, 3, item_ram_rom)
+
+            sim = f"{dev['sim_type']} SIM"
+            item_sim = QTableWidgetItem(sim)
             item_sim.setTextAlignment(align_left)
-            self.table_devices.setItem(idx, 3, item_sim)
-            
-            imeis = [dev.get("imei_1")]
+            item_sim.setToolTip(sim)
+            self.table_devices.setItem(row_idx, 4, item_sim)
+
+            imei_1 = dev.get("imei_1")
+            if imei_1 and imei_1.startswith("00"):
+                display_imei_1 = "N/A"
+            else:
+                display_imei_1 = imei_1 or "N/A"
+
+            imeis = [display_imei_1]
             for i in range(2, 5):
                 val = dev.get(f"imei_{i}")
                 if val:
                     imeis.append(val)
-            item_imeis = QTableWidgetItem(", ".join(imeis))
+            imei_str = ", ".join(filter(None, imeis))
+            item_imeis = QTableWidgetItem(imei_str)
             item_imeis.setTextAlignment(align_left)
-            self.table_devices.setItem(idx, 4, item_imeis)
+            item_imeis.setToolTip(imei_str)
+            self.table_devices.setItem(row_idx, 5, item_imeis)
+            
+            row_idx += 1
 
 
     def show_toast(self, message: str, type: str = "info"):
@@ -308,32 +497,157 @@ class DeviceView(QWidget):
         
         # Read all IMEI fields
         imeis = [txt.text().strip() for _, txt in self.imei_widgets]
+
+        if self.save_worker and self.save_worker.isRunning():
+            self.save_worker.terminate()
+            self.save_worker.wait()
         
         self.btn_submit.setEnabled(False)
-        self.btn_submit.setText("Saving...")
+        self.btn_submit.setText("Updating..." if self.current_edit_device_id else "Saving...")
         
+        self.save_worker = DeviceSaveWorker(
+            self.vm, self.current_edit_device_id, name, brand, model, ram, rom, sim_type, imeis
+        )
+        self.save_worker.success.connect(self.on_save_success)
+        self.save_worker.failed.connect(self.on_save_failed)
+        self.save_worker.start()
+
+    def on_save_success(self, message: str):
+        self.show_toast(message, "success")
+        self.cancel_edit()
+        self.load_devices()
+
+    def on_save_failed(self, error_msg: str):
+        if "required" in error_msg.lower() or "must be" in error_msg.lower() or "duplicate" in error_msg.lower() or "already registered" in error_msg.lower():
+            self.show_toast(error_msg, "warning")
+        else:
+            self.show_toast(f"Failed to register/update device:\n{error_msg}", "error")
+        self.btn_submit.setEnabled(True)
+        self.btn_submit.setText("Update Device" if self.current_edit_device_id else "Save Device")
+
+    def cancel_edit(self):
+        self.current_edit_device_id = None
+        self.txt_name.clear()
+        self.txt_brand.clear()
+        self.txt_model.clear()
+        self.cmb_ram.setCurrentIndex(4) # default 8 GB
+        self.cmb_rom.setCurrentIndex(3) # default 256 GB
+        self.radio_2.setChecked(True)
+        for _, txt in self.imei_widgets:
+            txt.clear()
+        self.adjust_imei_fields()
+        
+        self.lbl_form_title.setText("Add New Device")
+        self.btn_submit.setText("Save Device")
+        self.btn_submit.setEnabled(True)
+        self.btn_cancel_edit.setVisible(False)
+        self.btn_delete.setVisible(False)
+
+    def on_table_double_clicked(self, model_index):
+        row = model_index.row()
+        sno_item = self.table_devices.item(row, 0)
+        if sno_item is None:
+            return
         try:
-            self.vm.register_device(name, brand, model, ram, rom, sim_type, imeis)
-            self.show_toast("Device saved successfully to inventory.", "success")
-            
-            # Reset Form fields
-            self.txt_name.clear()
-            self.txt_brand.clear()
-            self.txt_model.clear()
-            self.cmb_ram.setCurrentIndex(4)
-            self.cmb_rom.setCurrentIndex(3)
+            # S.no is 1-based, convert to 0-based index in displayed_devices
+            dev_index = int(sno_item.text()) - 1
+        except ValueError:
+            return
+
+        devices = self.displayed_devices
+        if not devices or dev_index >= len(devices):
+            return
+
+        dev = devices[dev_index]
+        
+        # Check if the device is already sold. If yes, warn the user and block editing/deletion
+        sold_ids = {s["device_id"] for s in (self.cache_sales or []) if "device_id" in s}
+        if dev["id"] in sold_ids:
+            self.show_toast("This device is already sold and cannot be edited or deleted.", "warning")
+            return
+
+        self.current_edit_device_id = dev["id"]
+
+        self.txt_name.setText(dev["name"])
+        self.txt_brand.setText(dev["brand"] if dev["brand"] != "-" else "")
+        self.txt_model.setText(dev["model"] if dev["model"] != "-" else "")
+
+        # Set RAM Combo
+        ram_index = self.cmb_ram.findText(dev["ram"])
+        if ram_index >= 0:
+            self.cmb_ram.setCurrentIndex(ram_index)
+
+        # Set ROM Combo
+        rom_index = self.cmb_rom.findText(dev["rom"])
+        if rom_index >= 0:
+            self.cmb_rom.setCurrentIndex(rom_index)
+
+        # Set SIM radio group
+        sim_val = dev["sim_type"]
+        if sim_val == 1:
+            self.radio_1.setChecked(True)
+        elif sim_val == 2:
             self.radio_2.setChecked(True)
-            for _, txt in self.imei_widgets:
-                txt.clear()
-            self.adjust_imei_fields()
-            
-            # Refresh Table
-            self.load_devices()
-        except ValueError as ve:
-            self.show_toast(str(ve), "warning")
-            self.btn_submit.setEnabled(True)
-            self.btn_submit.setText("Save Device")
-        except Exception as e:
-            self.show_toast(f"Failed to register device:\n{e}", "error")
-            self.btn_submit.setEnabled(True)
-            self.btn_submit.setText("Save Device")
+        elif sim_val == 3:
+            self.radio_3.setChecked(True)
+        elif sim_val == 4:
+            self.radio_4.setChecked(True)
+
+        self.adjust_imei_fields()
+
+        # Set IMEI text fields
+        # If the IMEI was auto-generated (starts with "00"), we clear it in the edit form so they can type one!
+        for idx in range(1, 5):
+            imei_val = dev.get(f"imei_{idx}")
+            txt_widget = self.imei_widgets[idx - 1][1]
+            if imei_val:
+                if idx == 1 and imei_val.startswith("00"):
+                    txt_widget.clear()
+                else:
+                    txt_widget.setText(imei_val)
+            else:
+                txt_widget.clear()
+
+        self.lbl_form_title.setText("Edit Device Details")
+        self.btn_submit.setText("Update Device")
+        self.btn_submit.setEnabled(True)
+        self.btn_cancel_edit.setVisible(True)
+        self.btn_delete.setVisible(True)
+
+    def delete_device(self):
+        if not self.current_edit_device_id:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete Device",
+            "Are you sure you want to delete this device record from inventory?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        if self.delete_worker and self.delete_worker.isRunning():
+            self.delete_worker.terminate()
+            self.delete_worker.wait()
+
+        self.btn_delete.setEnabled(False)
+
+        self.delete_worker = DeviceDeleteWorker(self.vm, self.current_edit_device_id)
+        self.delete_worker.success.connect(self.on_delete_success)
+        self.delete_worker.failed.connect(self.on_delete_failed)
+        self.delete_worker.start()
+
+    def on_delete_success(self):
+        self.show_toast("Device deleted successfully from inventory.", "success")
+        self.btn_delete.setEnabled(True)
+        self.cancel_edit()
+        self.load_devices()
+
+    def on_delete_failed(self, error_msg: str):
+        if "already sold" in error_msg.lower() or "cannot be deleted" in error_msg.lower():
+            self.show_toast(error_msg, "warning")
+        else:
+            self.show_toast(f"Failed to delete device:\n{error_msg}", "error")
+        self.btn_delete.setEnabled(True)

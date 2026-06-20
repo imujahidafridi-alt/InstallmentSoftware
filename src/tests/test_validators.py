@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from src.viewmodels.customer_viewmodel import CustomerViewModel
 from src.viewmodels.device_viewmodel import DeviceViewModel
 
@@ -88,3 +88,64 @@ def test_device_optional_fields():
     )
     assert is_valid is True
     assert len(errors) == 0
+
+
+def test_device_auto_generate_imei():
+    vm = DeviceViewModel()
+    vm.repo = MagicMock()
+    vm.repo.check_imei_exists.return_value = False
+    vm.repo.create.side_effect = lambda data: data
+
+    result = vm.register_device(
+        name="iPhone 15",
+        brand="",
+        model="",
+        ram="8 GB",
+        rom="256 GB",
+        sim_type=1,
+        imeis=["", "", "", ""]
+    )
+    
+    assert result["imei_1"].startswith("00")
+    assert len(result["imei_1"]) == 15
+
+
+def test_device_update_safe():
+    vm = DeviceViewModel()
+    vm.repo = MagicMock()
+    
+    # 1. Test update when device is already sold
+    with patch.object(vm, "is_device_sold", return_value=True):
+        with pytest.raises(ValueError, match="already sold and cannot be edited"):
+            vm.update_device("dev-1", "iPhone 15", "Apple", "Model X", "8 GB", "256 GB", 1, ["", "", "", ""])
+
+    # 2. Test update success when device is unsold
+    vm.repo.check_imei_exists.return_value = False
+    vm.repo.update.side_effect = lambda dev_id, data: {**data, "id": dev_id}
+    
+    with patch.object(vm, "is_device_sold", return_value=False):
+        with patch("src.services.audit_log_service.AuditLogService.log_action") as mock_log:
+            result = vm.update_device("dev-1", "iPhone 15", "Apple", "Model X", "8 GB", "256 GB", 1, ["123456789012345", "", "", ""])
+            assert result["id"] == "dev-1"
+            assert result["name"] == "iPhone 15"
+            assert result["imei_1"] == "123456789012345"
+            vm.repo.update.assert_called_once()
+            mock_log.assert_called_once()
+
+
+def test_device_delete_safe():
+    vm = DeviceViewModel()
+    vm.repo = MagicMock()
+    
+    # 1. Test delete when device is already sold
+    with patch.object(vm, "is_device_sold", return_value=True):
+        with pytest.raises(ValueError, match="already sold and cannot be deleted"):
+            vm.delete_device("dev-1")
+
+    # 2. Test delete success when device is unsold
+    with patch.object(vm, "is_device_sold", return_value=False):
+        with patch("src.services.audit_log_service.AuditLogService.log_action") as mock_log:
+            success = vm.delete_device("dev-1")
+            assert success is True
+            vm.repo.delete.assert_called_once_with("dev-1")
+            mock_log.assert_called_once()
