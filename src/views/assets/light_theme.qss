@@ -68,7 +68,7 @@ QPushButton#sidebar_btn:checked {
 QPushButton {
     background-color: #3B82F6;
     color: #FFFFFF;
-    border: none;
+    border: 1.5px solid transparent;
     border-radius: 6px;
     padding: 8px 16px;
     font-weight: bold;
@@ -80,6 +80,10 @@ QPushButton:hover {
 
 QPushButton:pressed {
     background-color: #1D4ED8;
+}
+
+QPushButton:focus {
+    border-color: #93C5FD;
 }
 
 QPushButton:disabled {
@@ -97,12 +101,29 @@ QPushButton#btn_secondary:hover {
     background-color: #E2E8F0;
 }
 
+QPushButton#btn_secondary:pressed {
+    background-color: #CBD5E1;
+}
+
+QPushButton#btn_secondary:focus {
+    border-color: #3B82F6;
+}
+
 QPushButton#btn_danger {
     background-color: #EF4444;
+    border: 1.5px solid transparent;
 }
 
 QPushButton#btn_danger:hover {
     background-color: #DC2626;
+}
+
+QPushButton#btn_danger:pressed {
+    background-color: #B91C1C;
+}
+
+QPushButton#btn_danger:focus {
+    border-color: #FCA5A5;
 }
 
 /* Inputs and Forms */
@@ -114,8 +135,8 @@ QLineEdit, QTextEdit, QPlainTextEdit, QDateEdit {
     color: #0F172A;
 }
 
-QLineEdit:focus, QTextEdit:focus, QDateEdit:focus {
-    border: 1px solid #3B82F6;
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QDateEdit:focus {
+    border: 1.5px solid #3B82F6;
 }
 
 QComboBox {
@@ -126,8 +147,8 @@ QComboBox {
     color: #0F172A;
 }
 
-QComboBox:on {
-    border: 1px solid #3B82F6;
+QComboBox:focus, QComboBox:on {
+    border: 1.5px solid #3B82F6;
 }
 
 QComboBox::drop-down {

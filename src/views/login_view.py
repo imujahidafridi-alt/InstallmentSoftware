@@ -36,15 +36,15 @@ class LoginView(QWidget):
         self.setMaximumSize(520, 750)
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(35, 25, 35, 25)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(32, 24, 32, 24)
+        main_layout.setSpacing(16)
 
         # =============================================================
         # 1. APPLICATION HEADER LOGO/TITLE
         # =============================================================
         header_widget = QWidget()
         header_layout = QVBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 10)
+        header_layout.setContentsMargins(0, 0, 0, 8)
         header_layout.setSpacing(4)
         header_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -80,10 +80,10 @@ class LoginView(QWidget):
         # =============================================================
         card = QFrame()
         card.setObjectName("form_card")
-        card.setStyleSheet("QFrame#form_card { background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; }")
+        card.setStyleSheet("QFrame#form_card { background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; }")
         
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(25, 25, 25, 25)
+        card_layout.setContentsMargins(24, 24, 24, 24)
         card_layout.setSpacing(12)
         
         lbl_card_title = QLabel("Sign In")
@@ -97,7 +97,6 @@ class LoginView(QWidget):
         self.txt_email = QLineEdit()
         self.txt_email.setPlaceholderText("Enter your email address")
         self.txt_email.setFixedHeight(35)
-        self.txt_email.setStyleSheet("QLineEdit { border: 1px solid #CBD5E1; border-radius: 6px; padding: 6px 10px; color: #0F172A; } QLineEdit:focus { border: 1px solid #3B82F6; }")
         card_layout.addWidget(lbl_email_hdr)
         card_layout.addWidget(self.txt_email)
         
@@ -108,14 +107,12 @@ class LoginView(QWidget):
         self.txt_password.setPlaceholderText("Enter your password")
         self.txt_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_password.setFixedHeight(35)
-        self.txt_password.setStyleSheet("QLineEdit { border: 1px solid #CBD5E1; border-radius: 6px; padding: 6px 10px; color: #0F172A; } QLineEdit:focus { border: 1px solid #3B82F6; }")
         card_layout.addWidget(lbl_pwd_hdr)
         card_layout.addWidget(self.txt_password)
         
         # Login Button
         self.btn_login = QPushButton("Sign In")
         self.btn_login.setFixedHeight(38)
-        self.btn_login.setStyleSheet("QPushButton { background-color: #2563EB; color: #FFFFFF; font-weight: bold; border-radius: 6px; font-size: 12px; } QPushButton:hover { background-color: #1D4ED8; } QPushButton:pressed { background-color: #1E40AF; }")
         self.btn_login.clicked.connect(self.handle_login)
         card_layout.addWidget(self.btn_login)
         

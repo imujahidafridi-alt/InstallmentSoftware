@@ -92,8 +92,8 @@ class CustomerView(QWidget):
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # -------------------------------------------------------------
         # 1. LEFT SIDE: ADD CUSTOMER FORM
@@ -102,7 +102,7 @@ class CustomerView(QWidget):
         form_card.setObjectName("form_card")
         form_card.setFixedWidth(320)
         form_layout = QVBoxLayout(form_card)
-        form_layout.setSpacing(10)
+        form_layout.setSpacing(12)
         
         self.lbl_form_title = QLabel("Register New Customer")
         self.lbl_form_title.setObjectName("lbl_section_title")
@@ -176,6 +176,7 @@ class CustomerView(QWidget):
         
         # Search panel
         search_layout = QHBoxLayout()
+        search_layout.setSpacing(12)
         self.txt_search = QLineEdit()
         self.txt_search.setPlaceholderText("Search by Name or Mobile...")
         self.txt_search.textChanged.connect(self.search_customers)
@@ -196,6 +197,7 @@ class CustomerView(QWidget):
         self.table_customers.verticalHeader().setVisible(False)
         self.table_customers.verticalHeader().setDefaultSectionSize(38)
         self.table_customers.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_customers.setSortingEnabled(False)
         self.table_customers.doubleClicked.connect(self.on_table_double_clicked)
         list_layout.addWidget(self.table_customers)
         main_layout.addWidget(list_container, 7)
@@ -265,7 +267,16 @@ class CustomerView(QWidget):
 
     def populate_table(self, customers):
         self.displayed_customers = list(customers)  # Snapshot to prevent race condition
+        self.table_customers.setSortingEnabled(False)
         self.table_customers.setRowCount(0)
+        if not customers:
+            from src.views.components.q_placeholder import show_empty_table_message
+            if self.current_search_query:
+                show_empty_table_message(self.table_customers, f"No matching customers found for '{self.current_search_query}'.\nTry checking the spelling or mobile number.")
+            else:
+                show_empty_table_message(self.table_customers, "No customers registered yet.\nUse the form on the left to register a customer.")
+            return
+
         align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         for idx, cust in enumerate(customers):
@@ -299,6 +310,7 @@ class CustomerView(QWidget):
             self.table_customers.setItem(idx, 3, item_mobile)
             self.table_customers.setItem(idx, 4, item_address)
             self.table_customers.setItem(idx, 5, item_reminders)
+        self.table_customers.setSortingEnabled(False)
 
     def show_toast(self, message: str, type: str = "info"):
         if hasattr(self.window(), 'show_notification'):

@@ -120,8 +120,8 @@ class DeviceView(QWidget):
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # -------------------------------------------------------------
         # 1. LEFT SIDE: ADD DEVICE FORM
@@ -315,7 +315,7 @@ class DeviceView(QWidget):
         self.btn_refresh.clicked.connect(self.load_devices)
         search_layout.addWidget(self.btn_refresh)
         list_layout.addLayout(search_layout)
-
+ 
         self.table_devices = QTableWidget(0, 6)
         self.table_devices.setHorizontalHeaderLabels(["S.No", "Device Name", "Brand / Model", "RAM/ROM", "SIM Type", "IMEIs"])
         self.table_devices.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -324,6 +324,7 @@ class DeviceView(QWidget):
         self.table_devices.verticalHeader().setVisible(False)
         self.table_devices.verticalHeader().setDefaultSectionSize(38)
         self.table_devices.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_devices.setSortingEnabled(False)
         list_layout.addWidget(self.table_devices)
         self.table_devices.doubleClicked.connect(self.on_table_double_clicked)
         main_layout.addWidget(list_container, 7)
@@ -410,23 +411,36 @@ class DeviceView(QWidget):
     def populate_table(self, devices, sales):
         self.last_fetched_devices = devices
         self.displayed_devices = []
+        self.table_devices.setSortingEnabled(False)
+        self.table_devices.setRowCount(0)
         
         sold_ids = {s["device_id"] for s in sales if "device_id" in s}
 
-        self.table_devices.setRowCount(0)
-        align_center = Qt.AlignmentFlag.AlignCenter
-        align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        
         show_only_sold = self.btn_show_sold.isChecked()
         
-        row_idx = 0
+        filtered_devices = []
         for dev in devices:
             is_sold = dev["id"] in sold_ids
             if show_only_sold != is_sold:
                 continue
+            filtered_devices.append(dev)
 
+        if not filtered_devices:
+            from src.views.components.q_placeholder import show_empty_table_message
+            if self.current_search_query:
+                show_empty_table_message(self.table_devices, f"No matching devices found for '{self.current_search_query}'.\nTry searching for another device name, model, or IMEI.")
+            elif show_only_sold:
+                show_empty_table_message(self.table_devices, "No sold devices found in the system log.")
+            else:
+                show_empty_table_message(self.table_devices, "No devices available in inventory.\nRegister a device using the form on the left.")
+            return
+
+        align_center = Qt.AlignmentFlag.AlignCenter
+        align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        
+        row_idx = 0
+        for dev in filtered_devices:
             self.displayed_devices.append(dev)
-
             self.table_devices.insertRow(row_idx)
 
             item_sno = QTableWidgetItem(str(row_idx + 1))
@@ -474,6 +488,7 @@ class DeviceView(QWidget):
             self.table_devices.setItem(row_idx, 5, item_imeis)
             
             row_idx += 1
+        self.table_devices.setSortingEnabled(False)
 
 
     def show_toast(self, message: str, type: str = "info"):

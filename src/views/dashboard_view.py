@@ -54,8 +54,8 @@ class DashboardView(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # Header Title
         header_layout = QHBoxLayout()
@@ -78,14 +78,14 @@ class DashboardView(QWidget):
         scroll_content = QWidget()
         scroll_content.setObjectName("scroll_content")
         scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setSpacing(20)
+        scroll_layout.setSpacing(24)
         scroll_layout.setContentsMargins(0, 0, 0, 0)
 
         # -------------------------------------------------------------
         # 1. KPI CARDS SECTION (3x3 Grid Layout)
         # -------------------------------------------------------------
         kpi_grid = QGridLayout()
-        kpi_grid.setSpacing(15)
+        kpi_grid.setSpacing(16)
         
         self.card_cust = MetricCard("TOTAL CUSTOMERS", "0", icon_name="users-card")
         self.card_sold = MetricCard("DEVICES SOLD", "0", icon_name="device-card")
@@ -111,34 +111,34 @@ class DashboardView(QWidget):
         kpi_grid.addWidget(self.card_revenue, 2, 2)
         
         scroll_layout.addLayout(kpi_grid)
-
+ 
         # -------------------------------------------------------------
         # 2. CHARTS SECTION (QTabWidget grouping 5 charts)
         # -------------------------------------------------------------
         self.charts_tab = QTabWidget()
         self.charts_tab.setFixedHeight(340)
-
+ 
         self.chart_collections = ChartWidget()
         self.chart_profit = ChartWidget()
         self.chart_outstanding = ChartWidget()
         self.chart_recovery = ChartWidget()
         self.chart_completion = ChartWidget()
-
+ 
         # Helper to wrap charts in styled frames
         def wrap_charts(widgets_list):
             frame = QFrame()
             frame.setObjectName("form_card")
             h_layout = QHBoxLayout(frame)
-            h_layout.setContentsMargins(10, 10, 10, 10)
-            h_layout.setSpacing(15)
+            h_layout.setContentsMargins(12, 12, 12, 12)
+            h_layout.setSpacing(16)
             for w in widgets_list:
                 h_layout.addWidget(w)
             return frame
-
+ 
         self.charts_tab.addTab(wrap_charts([self.chart_collections, self.chart_profit]), "Collections & Profit Trends")
         self.charts_tab.addTab(wrap_charts([self.chart_outstanding, self.chart_recovery]), "Balance & Recovery Analysis")
         self.charts_tab.addTab(wrap_charts([self.chart_completion]), "Completion Rate Analysis")
-
+ 
         scroll_layout.addWidget(self.charts_tab)
         
         scroll.setWidget(scroll_content)

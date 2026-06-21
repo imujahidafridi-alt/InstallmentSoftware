@@ -50,15 +50,15 @@ class ReportView(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # Title / Search section
         filter_panel = QFrame()
         filter_panel.setObjectName("topnav")
         filter_layout = QHBoxLayout(filter_panel)
-        filter_layout.setContentsMargins(10, 10, 10, 10)
-        filter_layout.setSpacing(15)
+        filter_layout.setContentsMargins(12, 12, 12, 12)
+        filter_layout.setSpacing(16)
         
         # Month
         filter_layout.addWidget(QLabel("Month:"))
@@ -91,7 +91,7 @@ class ReportView(QWidget):
         # SUMMARY KPI METRICS PANEL
         # -------------------------------------------------------------
         sum_layout = QHBoxLayout()
-        sum_layout.setSpacing(15)
+        sum_layout.setSpacing(16)
         
         self.lbl_sum_received = QLabel("Collections This Month: Rs. 0.00")
         self.lbl_sum_received.setObjectName("lbl_metric_title")
@@ -115,9 +115,16 @@ class ReportView(QWidget):
         self.table_collections.setHorizontalHeaderLabels(["S.No", "Customer Name", "Device", "Payment Date", "Amount Received"])
         self.table_collections.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_collections.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        
+        # Right-align the Amount Received header item
+        hdr_amount = self.table_collections.horizontalHeaderItem(4)
+        if hdr_amount:
+            hdr_amount.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            
         self.table_collections.verticalHeader().setVisible(False)
         self.table_collections.verticalHeader().setDefaultSectionSize(38)
         self.table_collections.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_collections.setSortingEnabled(False)
         main_layout.addWidget(self.table_collections)
 
 
@@ -128,8 +135,8 @@ class ReportView(QWidget):
         export_panel = QFrame()
         export_panel.setObjectName("form_card")
         export_layout = QHBoxLayout(export_panel)
-        export_layout.setContentsMargins(10, 10, 10, 10)
-        export_layout.setSpacing(15)
+        export_layout.setContentsMargins(12, 12, 12, 12)
+        export_layout.setSpacing(16)
         
         export_layout.addWidget(QLabel("<b>Export Collection Report:</b>"))
         
@@ -165,8 +172,14 @@ class ReportView(QWidget):
 
         # 2. Prevent concurrent runs
         if self.worker and self.worker.isRunning():
-            self.worker.terminate()
-            self.worker.wait()
+            if self.worker.month == month and self.worker.year == year:
+                return
+            try:
+                self.worker.sync_finished.disconnect()
+                self.worker.sync_not_needed.disconnect()
+                self.worker.sync_failed.disconnect()
+            except TypeError:
+                pass
             
         # 3. Fire async worker
         self.worker = ReportWorker(self.vm, month, year)
@@ -194,9 +207,22 @@ class ReportView(QWidget):
         self.lbl_sum_outstanding.setText(f"System Outstanding: {ConfigManager.format_currency(summary['total_outstanding'])}")
         self.lbl_sum_profit.setText(f"Profit Margin: {ConfigManager.format_currency(summary['total_profit'])}")
         
-        # Populate list details
+        self.table_collections.setSortingEnabled(False)
         self.table_collections.setRowCount(0)
+        
+        if not data:
+            from src.views.components.q_placeholder import show_empty_table_message
+            show_empty_table_message(self.table_collections, f"No payment collections recorded for {self.cmb_month.currentText()} {self.cmb_year.currentText()}.")
+            
+            # Disable file export actions if no records exist
+            self.btn_pdf.setEnabled(False)
+            self.btn_excel.setEnabled(False)
+            self.btn_csv.setEnabled(False)
+            return
+
+        # Populate list details
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        align_right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         for idx, item in enumerate(data):
             self.table_collections.insertRow(idx)
             
@@ -223,9 +249,10 @@ class ReportView(QWidget):
             
             formatted_amount = ConfigManager.format_currency(item['amount_received'])
             item_amount = QTableWidgetItem(formatted_amount)
-            item_amount.setTextAlignment(align_left)
+            item_amount.setTextAlignment(align_right)
             item_amount.setToolTip(formatted_amount)
             self.table_collections.setItem(idx, 4, item_amount)
+        self.table_collections.setSortingEnabled(False)
 
 
 

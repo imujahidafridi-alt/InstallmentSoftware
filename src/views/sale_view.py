@@ -439,8 +439,8 @@ class SaleView(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # Title
         lbl_title = QLabel("Create Installment Sale Transaction")
@@ -451,8 +451,8 @@ class SaleView(QWidget):
         form_card = QFrame()
         form_card.setObjectName("form_card")
         form_layout = QHBoxLayout(form_card)
-        form_layout.setContentsMargins(20, 20, 20, 20)
-        form_layout.setSpacing(30)
+        form_layout.setContentsMargins(24, 24, 24, 24)
+        form_layout.setSpacing(32)
 
         # ─── LEFT COLUMN ─────────────────────────────────────────────
         left_column = QWidget()
@@ -472,7 +472,7 @@ class SaleView(QWidget):
 
         # Financial Inputs Grid
         fin_grid = QGridLayout()
-        fin_grid.setSpacing(10)
+        fin_grid.setSpacing(12)
 
         fin_grid.addWidget(QLabel("Cost Price (Rs.) *"), 0, 0)
         self.txt_cost_price = QLineEdit()
@@ -511,14 +511,14 @@ class SaleView(QWidget):
         # ─── RIGHT COLUMN ─────────────────────────────────────────────
         right_column = QWidget()
         right_layout = QVBoxLayout(right_column)
-        right_layout.setSpacing(15)
+        right_layout.setSpacing(16)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
         # Margin Card
         self.margin_box = QFrame()
         self.margin_box.setObjectName("metric_card")
         margin_layout = QVBoxLayout(self.margin_box)
-        margin_layout.setContentsMargins(15, 15, 15, 15)
+        margin_layout.setContentsMargins(16, 16, 16, 16)
 
         lbl_margin_title = QLabel("REAL-TIME PROFIT MARGIN")
         lbl_margin_title.setObjectName("lbl_metric_title")
@@ -536,7 +536,7 @@ class SaleView(QWidget):
         self.inst_box = QFrame()
         self.inst_box.setObjectName("metric_card")
         inst_layout = QVBoxLayout(self.inst_box)
-        inst_layout.setContentsMargins(15, 15, 15, 15)
+        inst_layout.setContentsMargins(16, 16, 16, 16)
 
         lbl_inst_title = QLabel("ESTIMATED MONTHLY INSTALLMENT")
         lbl_inst_title.setObjectName("lbl_metric_title")

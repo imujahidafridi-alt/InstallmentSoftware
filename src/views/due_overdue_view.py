@@ -43,8 +43,8 @@ class DueOverdueView(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # Header Title
         header_layout = QHBoxLayout()
@@ -64,8 +64,8 @@ class DueOverdueView(QWidget):
         # --- TAB 1: OVERDUE INSTALLMENTS ---
         self.tab_overdue = QWidget()
         overdue_layout = QVBoxLayout(self.tab_overdue)
-        overdue_layout.setContentsMargins(15, 15, 15, 15)
-        overdue_layout.setSpacing(15)
+        overdue_layout.setContentsMargins(16, 16, 16, 16)
+        overdue_layout.setSpacing(16)
         
         # Overdue controls layout (title & combobox filter)
         overdue_ctrl_layout = QHBoxLayout()
@@ -90,14 +90,19 @@ class DueOverdueView(QWidget):
         self.table_overdue.verticalHeader().setVisible(False)
         self.table_overdue.verticalHeader().setDefaultSectionSize(38)
         self.table_overdue.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_overdue.setSortingEnabled(False)
+        # Right-align the Outstanding Balance header item
+        overdue_hdr_item = self.table_overdue.horizontalHeaderItem(5)
+        if overdue_hdr_item:
+            overdue_hdr_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.table_overdue.doubleClicked.connect(self.on_overdue_double_clicked)
         overdue_layout.addWidget(self.table_overdue)
         
         # --- TAB 2: DUE SCHEDULES ---
         self.tab_due = QWidget()
         due_layout = QVBoxLayout(self.tab_due)
-        due_layout.setContentsMargins(15, 15, 15, 15)
-        due_layout.setSpacing(15)
+        due_layout.setContentsMargins(16, 16, 16, 16)
+        due_layout.setSpacing(16)
         
         due_ctrl_layout = QHBoxLayout()
         lbl_due_desc = QLabel("Upcoming schedules representing payments expected soon.")
@@ -121,6 +126,11 @@ class DueOverdueView(QWidget):
         self.table_due.verticalHeader().setVisible(False)
         self.table_due.verticalHeader().setDefaultSectionSize(38)
         self.table_due.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_due.setSortingEnabled(False)
+        # Right-align the Outstanding Balance header item
+        due_hdr_item = self.table_due.horizontalHeaderItem(4)
+        if due_hdr_item:
+            due_hdr_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.table_due.doubleClicked.connect(self.on_due_double_clicked)
         due_layout.addWidget(self.table_due)
         
@@ -189,9 +199,18 @@ class DueOverdueView(QWidget):
         else:
             data = self.tracking_data.get("due_this_month", [])
 
+        self.table_due.setSortingEnabled(False)
         self.table_due.setRowCount(0)
+        
+        if not data:
+            from src.views.components.q_placeholder import show_empty_table_message
+            show_empty_table_message(self.table_due, f"No upcoming due schedules found for '{filter_type}'.\nAll payments are up to date.")
+            return
+
         align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        align_right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        
         for idx, item in enumerate(data):
             self.table_due.insertRow(idx)
 
@@ -216,9 +235,10 @@ class DueOverdueView(QWidget):
 
             formatted_outstanding = ConfigManager.format_currency(item["outstanding_amount"])
             item_outstanding = QTableWidgetItem(formatted_outstanding)
-            item_outstanding.setTextAlignment(align_left)
+            item_outstanding.setTextAlignment(align_right)
             item_outstanding.setToolTip(formatted_outstanding)
             self.table_due.setItem(idx, 4, item_outstanding)
+        self.table_due.setSortingEnabled(False)
 
     def update_overdue_table(self):
         if not self.tracking_data:
@@ -239,9 +259,18 @@ class DueOverdueView(QWidget):
                     self.tracking_data.get("overdue_61_90", []) + 
                     self.tracking_data.get("overdue_90_plus", []))
 
+        self.table_overdue.setSortingEnabled(False)
         self.table_overdue.setRowCount(0)
+        
+        if not data:
+            from src.views.components.q_placeholder import show_empty_table_message
+            show_empty_table_message(self.table_overdue, f"No overdue installments found for '{filter_type}'.\nAll customers are currently up to date.")
+            return
+
         align_center = Qt.AlignmentFlag.AlignCenter
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        align_right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        
         for idx, item in enumerate(data):
             self.table_overdue.insertRow(idx)
 
@@ -273,9 +302,10 @@ class DueOverdueView(QWidget):
 
             formatted_outstanding = ConfigManager.format_currency(item["outstanding_amount"])
             item_outstanding = QTableWidgetItem(formatted_outstanding)
-            item_outstanding.setTextAlignment(align_left)
+            item_outstanding.setTextAlignment(align_right)
             item_outstanding.setToolTip(formatted_outstanding)
             self.table_overdue.setItem(idx, 5, item_outstanding)
+        self.table_overdue.setSortingEnabled(False)
 
     def on_overdue_double_clicked(self, model_index):
         filter_type = self.cmb_overdue_filter.currentText()

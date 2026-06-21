@@ -147,6 +147,7 @@ class LedgerSearchWidget(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        self.setFixedHeight(36)
 
         # Search input
         self.txt_search = QLineEdit()
@@ -412,14 +413,15 @@ class LedgerView(QWidget):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(16)
 
         # Title / Search section
         search_panel = QFrame()
         search_panel.setObjectName("topnav")
+        search_panel.setFixedHeight(60)
         search_layout = QHBoxLayout(search_panel)
-        search_layout.setContentsMargins(10, 10, 10, 10)
+        search_layout.setContentsMargins(12, 12, 12, 12)
         
         search_layout.addWidget(QLabel("Select Active Ledger / Sale:"))
         self.ledg_search = LedgerSearchWidget()
@@ -429,6 +431,10 @@ class LedgerView(QWidget):
         
         self.btn_refresh = QPushButton("Refresh Ledgers")
         self.btn_refresh.setObjectName("btn_secondary")
+        self.btn_refresh.setFixedHeight(36)
+        self.btn_refresh.setIconSize(QSize(16, 16))
+        icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons")
+        self.btn_refresh.setIcon(QIcon(os.path.join(icons_dir, "refresh.svg")))
         self.btn_refresh.clicked.connect(self.load_ledgers_dropdown)
         search_layout.addWidget(self.btn_refresh)
         
@@ -437,20 +443,20 @@ class LedgerView(QWidget):
 
         # Main Layout splitter
         content_layout = QHBoxLayout()
-        content_layout.setSpacing(15)
+        content_layout.setSpacing(16)
 
         # -------------------------------------------------------------
         # LEFT COLUMN: LEDGER AND CUSTOMER SUMMARY CARDS
         # -------------------------------------------------------------
         left_col = QVBoxLayout()
-        left_col.setSpacing(15)
+        left_col.setSpacing(16)
 
         # Summary Info Box
         self.summary_box = QFrame()
         self.summary_box.setObjectName("form_card")
         self.summary_box.setFixedWidth(300)
         sum_layout = QVBoxLayout(self.summary_box)
-        sum_layout.setSpacing(10)
+        sum_layout.setSpacing(12)
         
         lbl_sum_title = QLabel("Ledger Balance Sheet")
         lbl_sum_title.setObjectName("lbl_section_title")
@@ -515,7 +521,7 @@ class LedgerView(QWidget):
         action_box.setObjectName("form_card")
         action_box.setFixedWidth(300)
         act_layout = QVBoxLayout(action_box)
-        act_layout.setSpacing(10)
+        act_layout.setSpacing(12)
         
         self.btn_pay = QPushButton("Collect Installment Payment")
         self.btn_pay.clicked.connect(self.collect_payment)
@@ -533,7 +539,6 @@ class LedgerView(QWidget):
         self.btn_print.clicked.connect(self.print_ledger)
         self.btn_print.setEnabled(False)
 
-        # Apply custom style sheets for fixed icon alignment and individual color coding
         button_style_template = (
             "QPushButton {{"
             "  background-color: {bg_color};"
@@ -542,7 +547,7 @@ class LedgerView(QWidget):
             "  padding-left: 20px;"
             "  font-weight: bold;"
             "  border-radius: 6px;"
-            "  height: 40px;"
+            "  height: 32px;"
             "  border: none;"
             "}}"
             "QPushButton:hover {{"
@@ -577,6 +582,13 @@ class LedgerView(QWidget):
         self.btn_pdf.setIcon(QIcon(os.path.join(icons_dir, "checklist_white.svg")))
         self.btn_print.setIcon(QIcon(os.path.join(icons_dir, "eye_white.svg")))
 
+        # Set standard icon sizes to fit neatly inside 32px height buttons
+        icon_size = QSize(16, 16)
+        self.btn_pay.setIconSize(icon_size)
+        self.btn_reschedule.setIconSize(icon_size)
+        self.btn_pdf.setIconSize(icon_size)
+        self.btn_print.setIconSize(icon_size)
+
         act_layout.addWidget(self.btn_pay)
         act_layout.addWidget(self.btn_reschedule)
         act_layout.addWidget(self.btn_pdf)
@@ -592,9 +604,19 @@ class LedgerView(QWidget):
         self.table_ledger.setHorizontalHeaderLabels(["No.", "Due Date", "Amount Due", "Paid Date", "Amount Paid", "Status"])
         self.table_ledger.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_ledger.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        
+        # Right align financial column headers
+        hdr_amt_due = self.table_ledger.horizontalHeaderItem(2)
+        if hdr_amt_due:
+            hdr_amt_due.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        hdr_amt_paid = self.table_ledger.horizontalHeaderItem(4)
+        if hdr_amt_paid:
+            hdr_amt_paid.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            
         self.table_ledger.verticalHeader().setVisible(False)
         self.table_ledger.verticalHeader().setDefaultSectionSize(38)
         self.table_ledger.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table_ledger.setSortingEnabled(False)
         
         content_layout.addWidget(self.table_ledger, 7)
 
@@ -678,7 +700,11 @@ class LedgerView(QWidget):
             self.lbl_outstanding.setText("Outstanding Balance: Rs. 0.00")
             self.lbl_remaining_months.setText("Unpaid Months: 0")
             self.lbl_next_due.setText("Next Due Date: -")
-            self.table_ledger.setRowCount(0)
+            
+            # Show guidelines empty state on table
+            from src.views.components.q_placeholder import show_empty_table_message
+            show_empty_table_message(self.table_ledger, "Please search and select a customer ledger using the search bar above\nto view their payment schedule.")
+            
             self.btn_pay.setEnabled(False)
             self.btn_reschedule.setEnabled(False)
             self.btn_pdf.setEnabled(False)
@@ -697,8 +723,14 @@ class LedgerView(QWidget):
 
         # 2. Prevent concurrent detail workers
         if self.detail_worker and self.detail_worker.isRunning():
-            self.detail_worker.terminate()
-            self.detail_worker.wait()
+            if self.detail_worker.sale_id == sale_id:
+                return
+            try:
+                self.detail_worker.sync_finished.disconnect()
+                self.detail_worker.sync_not_needed.disconnect()
+                self.detail_worker.sync_failed.disconnect()
+            except TypeError:
+                pass
             
         # 3. Fire async details retrieval
         self.detail_worker = LedgerDetailWorker(self.vm, sale_id)
@@ -748,9 +780,17 @@ class LedgerView(QWidget):
         self.lbl_next_due.setText(f"Next Due Date: {next_due_str}")
         
         # Map repayments table
-        installments = data["installments"]
+        installments = sorted(data["installments"], key=lambda x: x["due_date"])
         payments = data["payments"]
         
+        self.table_ledger.setSortingEnabled(False)
+        self.table_ledger.setRowCount(0)
+        
+        if not installments:
+            from src.views.components.q_placeholder import show_empty_table_message
+            show_empty_table_message(self.table_ledger, "No installment schedules generated for this ledger.")
+            return
+
         # Map payments per installment for display
         payment_map = {}
         for pay in payments:
@@ -759,12 +799,13 @@ class LedgerView(QWidget):
                 payment_map[inst_id] = []
             payment_map[inst_id].append(pay)
             
-        self.table_ledger.setRowCount(0)
         align_left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        align_right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         for idx, inst in enumerate(installments):
             self.table_ledger.insertRow(idx)
             
-            item_no = QTableWidgetItem(str(idx + 1))
+            item_no = QTableWidgetItem()
+            item_no.setData(Qt.ItemDataRole.EditRole, idx + 1)
             item_no.setTextAlignment(align_left)
             item_no.setToolTip(str(idx + 1))
             self.table_ledger.setItem(idx, 0, item_no)
@@ -777,7 +818,7 @@ class LedgerView(QWidget):
             
             formatted_amt = ConfigManager.format_currency(inst['amount'])
             item_amt = QTableWidgetItem(formatted_amt)
-            item_amt.setTextAlignment(align_left)
+            item_amt.setTextAlignment(align_right)
             item_amt.setToolTip(formatted_amt)
             self.table_ledger.setItem(idx, 2, item_amt)
             
@@ -798,7 +839,7 @@ class LedgerView(QWidget):
             self.table_ledger.setItem(idx, 3, item_pay_dates)
             
             item_pay_amt = QTableWidgetItem(p_amount_str)
-            item_pay_amt.setTextAlignment(align_left)
+            item_pay_amt.setTextAlignment(align_right)
             item_pay_amt.setToolTip(p_amount_str)
             self.table_ledger.setItem(idx, 4, item_pay_amt)
  
@@ -816,6 +857,7 @@ class LedgerView(QWidget):
                 status_item.setForeground(Qt.GlobalColor.red)
                 
             self.table_ledger.setItem(idx, 5, status_item)
+        self.table_ledger.setSortingEnabled(False)
 
 
         # Enable operations buttons
