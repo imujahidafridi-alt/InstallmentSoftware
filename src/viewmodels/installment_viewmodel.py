@@ -124,6 +124,9 @@ class InstallmentViewModel:
         start_of_week = today - timedelta(days=today.weekday())
         end_of_week = start_of_week + timedelta(days=6)
         
+        # Determine rolling 7-day range (including today)
+        end_of_next_7_days = today + timedelta(days=6)
+        
         # Determine calendar month range
         start_of_month = date(today.year, today.month, 1)
         import calendar
@@ -133,6 +136,7 @@ class InstallmentViewModel:
         due_today = []
         due_tomorrow = []
         due_this_week = []
+        due_next_7_days = []
         due_this_month = []
         
         overdue_1_30 = []
@@ -192,6 +196,8 @@ class InstallmentViewModel:
                     due_tomorrow.append(item)
                 if start_of_week <= due_dt <= end_of_week:
                     due_this_week.append(item)
+                if due_dt <= end_of_next_7_days:
+                    due_next_7_days.append(item)
                 if start_of_month <= due_dt <= end_of_month:
                     due_this_month.append(item)
 
@@ -199,6 +205,7 @@ class InstallmentViewModel:
             "due_today": due_today,
             "due_tomorrow": due_tomorrow,
             "due_this_week": due_this_week,
+            "due_next_7_days": due_next_7_days,
             "due_this_month": due_this_month,
             "overdue_1_30": overdue_1_30,
             "overdue_31_60": overdue_31_60,

@@ -42,11 +42,8 @@ class DashboardViewModel(BaseRepository):
             if sale_id:
                 sale_payments[sale_id] = sale_payments.get(sale_id, 0.0) + float(p["amount_received"])
 
-        # Calculate Active vs Completed Installments and Outstanding Balance
-        active_installments = 0
-        completed_installments = 0
+        # Calculate Outstanding Balance
         total_outstanding = 0.0
-
         for s in all_sales:
             sale_id = s["id"]
             selling_price = float(s["selling_price"])
@@ -55,10 +52,13 @@ class DashboardViewModel(BaseRepository):
             
             outstanding = selling_price - down_payment - paid
             if outstanding > 0.01:
-                active_installments += 1
                 total_outstanding += outstanding
-            else:
-                completed_installments += 1
+
+        # Calculate Active vs Completed Installments from database records
+        inst_status_res = self.db.table("installments").select("status").execute()
+        inst_statuses = inst_status_res.data or []
+        completed_installments = sum(1 for inst in inst_statuses if inst["status"] == "Paid")
+        active_installments = sum(1 for inst in inst_statuses if inst["status"] != "Paid")
 
         if total_outstanding < 0:
             total_outstanding = 0.0
@@ -239,14 +239,7 @@ class DashboardViewModel(BaseRepository):
             pct = (rec / due) * 100 if due > 0 else 0.0
             recovery_performance.append(min(100.0, pct))
 
-        # 6. Installment Completion Rate values
-        # Outstanding balance per sale to count completed vs active
-        # Build map of sale_id to payments
-        sale_payments = {}
-        for p in payments:
-            # We need to map payments back to installments, which belongs to sales
-            pass
-        # To make it simple, we can reuse the KPI completed/active values
+        # 6. Installment Completion Rate values (reuses the calculated KPIs)
         kpis = self.get_kpis()
         completion_data = [kpis["completed_installments"], kpis["total_active_installments"]]
 

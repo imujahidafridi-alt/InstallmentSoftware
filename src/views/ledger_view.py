@@ -361,6 +361,9 @@ class LedgerSearchWidget(QWidget):
                 )
                 self.list_popup.addItem(item)
 
+        win = self.window()
+        if win and self.list_popup.parent() != win:
+            self.list_popup.setParent(win)
         self.list_popup.show()
         self._update_popup_geometry()
 
@@ -475,6 +478,7 @@ class LedgerView(QWidget):
         self.lbl_cust_father = QLabel("Father Name: -")
         self.lbl_cust_address = QLabel("Address: -")
         self.lbl_dev_name = QLabel("Device: -")
+        self.lbl_selling_date = QLabel("Selling Date: -")
         self.lbl_selling_price = QLabel("Total Sale Price: Rs. 0.00")
         self.lbl_down_payment = QLabel("Down Payment: Rs. 0.00")
         self.lbl_total_paid = QLabel("Total Payments: Rs. 0.00")
@@ -495,6 +499,7 @@ class LedgerView(QWidget):
         sum_layout.addWidget(spacer_line)
         
         sum_layout.addWidget(create_metric_row("smartphone", self.lbl_dev_name))
+        sum_layout.addWidget(create_metric_row("calendar", self.lbl_selling_date))
         sum_layout.addWidget(create_metric_row("tag", self.lbl_selling_price))
         sum_layout.addWidget(create_metric_row("credit-card", self.lbl_down_payment))
         sum_layout.addWidget(create_metric_row("coins", self.lbl_total_paid))
@@ -517,26 +522,60 @@ class LedgerView(QWidget):
         self.btn_pay.setEnabled(False)
         
         self.btn_reschedule = QPushButton("Reschedule Remaining Balance")
-        self.btn_reschedule.setObjectName("btn_secondary")
         self.btn_reschedule.clicked.connect(self.reschedule_ledger)
         self.btn_reschedule.setEnabled(False)
 
         self.btn_pdf = QPushButton("Export Customer Ledger (PDF)")
-        self.btn_pdf.setObjectName("btn_secondary")
         self.btn_pdf.clicked.connect(self.export_pdf)
         self.btn_pdf.setEnabled(False)
 
-        self.btn_print = QPushButton("Preview & Print Ledger")
-        self.btn_print.setObjectName("btn_secondary")
+        self.btn_print = QPushButton("Preview Ledger")
         self.btn_print.clicked.connect(self.print_ledger)
         self.btn_print.setEnabled(False)
 
-        # Set icons
+        # Apply custom style sheets for fixed icon alignment and individual color coding
+        button_style_template = (
+            "QPushButton {{"
+            "  background-color: {bg_color};"
+            "  color: #FFFFFF;"
+            "  text-align: left;"
+            "  padding-left: 20px;"
+            "  font-weight: bold;"
+            "  border-radius: 6px;"
+            "  height: 40px;"
+            "  border: none;"
+            "}}"
+            "QPushButton:hover {{"
+            "  background-color: {hover_color};"
+            "}}"
+            "QPushButton:pressed {{"
+            "  background-color: {pressed_color};"
+            "}}"
+            "QPushButton:disabled {{"
+            "  background-color: #E2E8F0;"
+            "  color: #94A3B8;"
+            "}}"
+        )
+
+        self.btn_pay.setStyleSheet(button_style_template.format(
+            bg_color="#10B981", hover_color="#059669", pressed_color="#047857"
+        ))
+        self.btn_reschedule.setStyleSheet(button_style_template.format(
+            bg_color="#6366F1", hover_color="#4F46E5", pressed_color="#3730A3"
+        ))
+        self.btn_pdf.setStyleSheet(button_style_template.format(
+            bg_color="#0EA5E9", hover_color="#0284C7", pressed_color="#0369A1"
+        ))
+        self.btn_print.setStyleSheet(button_style_template.format(
+            bg_color="#8B5CF6", hover_color="#7C3AED", pressed_color="#6D28D9"
+        ))
+
+        # Set white icons to render clearly inside colored buttons
         icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icons")
-        self.btn_pay.setIcon(QIcon(os.path.join(icons_dir, "coins.svg")))
-        self.btn_reschedule.setIcon(QIcon(os.path.join(icons_dir, "calendar.svg")))
-        self.btn_pdf.setIcon(QIcon(os.path.join(icons_dir, "check-list.svg")))
-        self.btn_print.setIcon(QIcon(os.path.join(icons_dir, "printer.svg")))
+        self.btn_pay.setIcon(QIcon(os.path.join(icons_dir, "coins_white.svg")))
+        self.btn_reschedule.setIcon(QIcon(os.path.join(icons_dir, "calendar_white.svg")))
+        self.btn_pdf.setIcon(QIcon(os.path.join(icons_dir, "checklist_white.svg")))
+        self.btn_print.setIcon(QIcon(os.path.join(icons_dir, "eye_white.svg")))
 
         act_layout.addWidget(self.btn_pay)
         act_layout.addWidget(self.btn_reschedule)
@@ -632,6 +671,7 @@ class LedgerView(QWidget):
             self.lbl_cust_father.setText("Father Name: -")
             self.lbl_cust_address.setText("Address: -")
             self.lbl_dev_name.setText("Device: -")
+            self.lbl_selling_date.setText("Selling Date: -")
             self.lbl_selling_price.setText("Total Sale Price: Rs. 0.00")
             self.lbl_down_payment.setText("Down Payment: Rs. 0.00")
             self.lbl_total_paid.setText("Total Payments: Rs. 0.00")
@@ -687,6 +727,14 @@ class LedgerView(QWidget):
         self.lbl_cust_father.setText(f"Father Name: {data['customer']['father_name']}")
         self.lbl_cust_address.setText(f"Address: {data['customer']['address'] or '-'}")
         self.lbl_dev_name.setText(f"Device: {data['device']['brand']} {data['device']['model']}")
+        
+        selling_date_str = "-"
+        if data["sale"].get("start_date"):
+            try:
+                selling_date_str = datetime.strptime(data["sale"]["start_date"], "%Y-%m-%d").strftime("%d-%b-%Y")
+            except Exception:
+                selling_date_str = str(data["sale"]["start_date"])
+        self.lbl_selling_date.setText(f"Selling Date: {selling_date_str}")
         
         self.lbl_selling_price.setText(f"Total Sale Price: {ConfigManager.format_currency(data['summary']['selling_price'])}")
         self.lbl_down_payment.setText(f"Down Payment: {ConfigManager.format_currency(data['summary']['down_payment'])}")

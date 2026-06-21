@@ -38,6 +38,15 @@ def test_due_overdue_view_population(qtbot):
                 "sale_id": "test-sale-1"
             }
         ],
+        "due_next_7_days": [
+            {
+                "customer_name": "Next 7 Days Customer",
+                "device_name": "Next 7 Days Device",
+                "due_date": "2026-06-25",
+                "outstanding_amount": 3000.0,
+                "sale_id": "test-sale-3"
+            }
+        ],
         "overdue_1_30": [
             {
                 "customer_name": "Overdue Customer",
@@ -55,11 +64,19 @@ def test_due_overdue_view_population(qtbot):
     view.update_due_table()
     view.update_overdue_table()
 
-    # Assert rows are added correctly
+    # Assert default filter ("Due Today") rows are added correctly
     assert view.table_due.rowCount() == 1
     assert view.table_due.item(0, 0).text() == "1"
     assert view.table_due.item(0, 1).text() == "Test Customer"
     assert view.table_due.item(0, 4).text() == ConfigManager.format_currency(5000.0)
+
+    # Switch filter to "Next 7 Days"
+    view.cmb_due_filter.setCurrentText("Next 7 Days")
+    # Assert "Next 7 Days" rows are updated correctly
+    assert view.table_due.rowCount() == 1
+    assert view.table_due.item(0, 0).text() == "1"
+    assert view.table_due.item(0, 1).text() == "Next 7 Days Customer"
+    assert view.table_due.item(0, 4).text() == ConfigManager.format_currency(3000.0)
 
     assert view.table_overdue.rowCount() == 1
     assert view.table_overdue.item(0, 0).text() == "1"

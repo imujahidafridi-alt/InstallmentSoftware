@@ -106,7 +106,7 @@ class DueOverdueView(QWidget):
         due_ctrl_layout.addStretch()
         
         self.cmb_due_filter = QComboBox()
-        self.cmb_due_filter.addItems(["Due Today", "Due Tomorrow", "Due This Week", "Due This Month"])
+        self.cmb_due_filter.addItems(["Due Today", "Due Tomorrow", "Due This Week", "Next 7 Days", "Due This Month"])
         self.cmb_due_filter.currentIndexChanged.connect(self.update_due_table)
         self.cmb_due_filter.setFixedWidth(150)
         due_ctrl_layout.addWidget(self.cmb_due_filter)
@@ -184,6 +184,8 @@ class DueOverdueView(QWidget):
             data = self.tracking_data.get("due_tomorrow", [])
         elif filter_type == "Due This Week":
             data = self.tracking_data.get("due_this_week", [])
+        elif filter_type == "Next 7 Days":
+            data = self.tracking_data.get("due_next_7_days", [])
         else:
             data = self.tracking_data.get("due_this_month", [])
 
@@ -304,6 +306,8 @@ class DueOverdueView(QWidget):
             data = self.tracking_data.get("due_tomorrow", [])
         elif filter_type == "Due This Week":
             data = self.tracking_data.get("due_this_week", [])
+        elif filter_type == "Next 7 Days":
+            data = self.tracking_data.get("due_next_7_days", [])
         else:
             data = self.tracking_data.get("due_this_month", [])
         self.handle_redirect(model_index, data)

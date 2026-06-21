@@ -252,6 +252,13 @@ class ReportService:
             display_imei_1 = imei_1
         cust_imeis = ", ".join(filter(None, [display_imei_1, device.get("imei_2"), device.get("imei_3"), device.get("imei_4")]))
         
+        selling_date_formatted = ""
+        if sale.get("start_date"):
+            try:
+                selling_date_formatted = datetime.strptime(sale["start_date"], "%Y-%m-%d").strftime("%d-%b-%Y")
+            except Exception:
+                selling_date_formatted = str(sale["start_date"])
+
         card_header_style = ParagraphStyle(
             name='CardHeader',
             fontName='Helvetica-Bold',
@@ -278,7 +285,7 @@ class ReportService:
                 Paragraph("RAM / ROM:", label_style), Paragraph(f"{device.get('ram','')}/{device.get('rom','')}", value_style)
             ],
             [
-                Paragraph("", label_style), Paragraph("", value_style),
+                Paragraph("Selling Date:", label_style), Paragraph(selling_date_formatted, value_style),
                 Paragraph("IMEIs:", label_style), Paragraph(cust_imeis, value_style)
             ]
         ]

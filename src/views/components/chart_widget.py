@@ -70,20 +70,33 @@ class ChartWidget(FigureCanvas):
                         [1], 
                         labels=["No Data Available"], 
                         colors=["#94A3B8" if theme == "dark" else "#CBD5E1"], 
-                        textprops={'color': text_color, 'fontsize': 8},
+                        textprops={'color': text_color, 'fontsize': 9, 'weight': 'bold'},
                         startangle=90, 
-                        wedgeprops=dict(width=0.4, edgecolor=bg_color)
+                        wedgeprops=dict(width=0.5, edgecolor=bg_color)
                     )
                 else:
-                    self.axes.pie(
+                    pie_output = self.axes.pie(
                         values, 
                         labels=labels, 
                         autopct='%1.1f%%', 
                         colors=[bar_color, accent_color], 
-                        textprops={'color': text_color, 'fontsize': 8},
+                        textprops={'color': text_color, 'fontsize': 9, 'weight': 'bold'},
                         startangle=90, 
-                        wedgeprops=dict(width=0.4, edgecolor=bg_color)
+                        pctdistance=0.7,
+                        wedgeprops=dict(width=0.55, edgecolor=bg_color)
                     )
+                    # Convert to list to avoid TypeError in newer Matplotlib versions
+                    pie_output_list = list(pie_output)
+                    # Improve text legibility on the colored wedges if autopct is enabled
+                    if len(pie_output_list) == 3:
+                        autotexts = pie_output_list[2]
+                        for i, autotext in enumerate(autotexts):
+                            if values[i] == 0:
+                                autotext.set_text("")
+                            else:
+                                autotext.set_color('#FFFFFF')
+                                autotext.set_fontsize(9)
+                                autotext.set_weight('bold')
                 self.axes.grid(False)
 
             # Style layout parameters
