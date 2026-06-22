@@ -9,8 +9,8 @@ from src.viewmodels.device_viewmodel import DeviceViewModel
 from src.services.cache_service import CacheService
 
 class DeviceWorker(QThread):
-    sync_finished = pyqtSignal(list, list)
-    sync_not_needed = pyqtSignal()
+    sync_finished = pyqtSignal(list, list, list)
+    sync_not_needed = pyqtSignal(list)
     sync_failed = pyqtSignal(str)
 
     def __init__(self, vm: DeviceViewModel, query: str = None):
@@ -21,12 +21,16 @@ class DeviceWorker(QThread):
     def run(self):
         try:
             from src.repositories.sale_repository import SaleRepository
+            from src.viewmodels.supplier_viewmodel import SupplierViewModel
             sale_repo = SaleRepository()
+            supplier_vm = SupplierViewModel()
+            suppliers = supplier_vm.get_all_suppliers()
+            
             if self.query is not None:
                 print(f"[Devices] Querying search for query: '{self.query}'")
                 devices = self.vm.search_devices(self.query)
                 sales = sale_repo.get_all_with_details()
-                self.sync_finished.emit(devices, sales)
+                self.sync_finished.emit(devices, sales, suppliers)
             else:
                 changed_dev = CacheService.check_and_update_state("devices", self.vm.repo.db)
                 changed_sales = CacheService.check_and_update_state("sales", self.vm.repo.db)
@@ -36,13 +40,13 @@ class DeviceWorker(QThread):
                 )
                 if not changed_dev and not changed_sales and has_cache:
                     print("[Devices] No database changes detected. Loading device inventory from persistent cache.")
-                    self.sync_not_needed.emit()
+                    self.sync_not_needed.emit(suppliers)
                     return
 
                 print("[Devices] Database changes detected. Updating device inventory from database...")
                 devices = self.vm.get_all_devices()
                 sales = sale_repo.get_all_with_details()
-                self.sync_finished.emit(devices, sales)
+                self.sync_finished.emit(devices, sales, suppliers)
         except Exception as e:
             self.sync_failed.emit(str(e))
 
@@ -51,7 +55,7 @@ class DeviceSaveWorker(QThread):
     success = pyqtSignal(str)
     failed = pyqtSignal(str)
 
-    def __init__(self, vm: DeviceViewModel, device_id: Optional[str], name: str, brand: str, model: str, ram: str, rom: str, sim_type: int, imeis: list):
+    def __init__(self, vm: DeviceViewModel, device_id: Optional[str], name: str, brand: str, model: str, ram: str, rom: str, sim_type: int, imeis: list, supplier_id: Optional[str] = None):
         super().__init__()
         self.vm = vm
         self.device_id = device_id
@@ -62,19 +66,20 @@ class DeviceSaveWorker(QThread):
         self.rom = rom
         self.sim_type = sim_type
         self.imeis = imeis
+        self.supplier_id = supplier_id
 
     def run(self):
         try:
             if self.device_id:
                 self.vm.update_device(
                     self.device_id, self.name, self.brand, self.model,
-                    self.ram, self.rom, self.sim_type, self.imeis
+                    self.ram, self.rom, self.sim_type, self.imeis, self.supplier_id
                 )
                 self.success.emit("Device details updated successfully.")
             else:
                 self.vm.register_device(
                     self.name, self.brand, self.model,
-                    self.ram, self.rom, self.sim_type, self.imeis
+                    self.ram, self.rom, self.sim_type, self.imeis, self.supplier_id
                 )
                 self.success.emit("Device saved successfully to inventory.")
         except Exception as e:
@@ -174,6 +179,12 @@ class DeviceView(QWidget):
         ram_rom_layout.addLayout(rom_box)
         
         form_layout.addLayout(ram_rom_layout)
+
+        # Supplier Selection
+        form_layout.addWidget(QLabel("Supplier"))
+        self.cmb_supplier = QComboBox()
+        self.cmb_supplier.addItem("No Supplier (None)", None)
+        form_layout.addWidget(self.cmb_supplier)
         
         # SIM Configuration Buttons
         form_layout.addWidget(QLabel("SIM Slots Configuration"))
@@ -376,28 +387,42 @@ class DeviceView(QWidget):
         query = self.current_search_query
         worker = DeviceWorker(self.vm, query)
         self.active_workers.append(worker)
-        worker.sync_finished.connect(lambda devices, sales: self.on_search_success(devices, sales, query))
+        worker.sync_finished.connect(lambda devices, sales, suppliers: self.on_search_success(devices, sales, suppliers, query))
         worker.finished.connect(lambda: self.active_workers.remove(worker) if worker in self.active_workers else None)
         worker.start()
 
-    def on_search_success(self, devices, sales, query):
+    def on_search_success(self, devices, sales, suppliers, query):
         if query == self.current_search_query:
+            self.populate_suppliers_combo(suppliers)
             self.populate_table(devices, sales)
             if not devices and query:
                 self.show_toast(f'No device records found for "{query}".', "warning")
 
-    def on_load_success(self, devices: list, sales: list):
+    def populate_suppliers_combo(self, suppliers: list):
+        """Populates the supplier combo box while keeping selected value if possible."""
+        current_sel = self.cmb_supplier.currentData()
+        self.cmb_supplier.clear()
+        self.cmb_supplier.addItem("No Supplier (None)", None)
+        for s in suppliers:
+            self.cmb_supplier.addItem(s["name"], s["id"])
+        if current_sel:
+            idx = self.cmb_supplier.findData(current_sel)
+            if idx >= 0:
+                self.cmb_supplier.setCurrentIndex(idx)
+
+    def on_load_success(self, devices: list, sales: list, suppliers: list):
         self.cache_devices = devices
         self.cache_sales   = sales
         CacheService.set("devices", devices)
         CacheService.set("device_sales", sales)
+        self.populate_suppliers_combo(suppliers)
         # Only repopulate if no search is active — prevents race condition
         if not self.current_search_query:
             self.populate_table(devices, sales)
         print("[Devices] Device inventory updated successfully.")
 
-    def on_load_not_needed(self):
-        pass
+    def on_load_not_needed(self, suppliers: list):
+        self.populate_suppliers_combo(suppliers)
 
     def on_load_failed(self, error_msg: str):
         print(f"Device load failed: {error_msg}")
@@ -520,8 +545,9 @@ class DeviceView(QWidget):
         self.btn_submit.setEnabled(False)
         self.btn_submit.setText("Updating..." if self.current_edit_device_id else "Saving...")
         
+        supplier_id = self.cmb_supplier.currentData()
         self.save_worker = DeviceSaveWorker(
-            self.vm, self.current_edit_device_id, name, brand, model, ram, rom, sim_type, imeis
+            self.vm, self.current_edit_device_id, name, brand, model, ram, rom, sim_type, imeis, supplier_id
         )
         self.save_worker.success.connect(self.on_save_success)
         self.save_worker.failed.connect(self.on_save_failed)
@@ -548,6 +574,7 @@ class DeviceView(QWidget):
         self.cmb_ram.setCurrentIndex(4) # default 8 GB
         self.cmb_rom.setCurrentIndex(3) # default 256 GB
         self.radio_2.setChecked(True)
+        self.cmb_supplier.setCurrentIndex(0) # default None
         for _, txt in self.imei_widgets:
             txt.clear()
         self.adjust_imei_fields()
@@ -586,6 +613,14 @@ class DeviceView(QWidget):
         self.txt_name.setText(dev["name"])
         self.txt_brand.setText(dev["brand"] if dev["brand"] != "-" else "")
         self.txt_model.setText(dev["model"] if dev["model"] != "-" else "")
+
+        # Set Supplier Combo
+        supplier_id = dev.get("supplier_id")
+        idx = self.cmb_supplier.findData(supplier_id)
+        if idx >= 0:
+            self.cmb_supplier.setCurrentIndex(idx)
+        else:
+            self.cmb_supplier.setCurrentIndex(0)
 
         # Set RAM Combo
         ram_index = self.cmb_ram.findText(dev["ram"])

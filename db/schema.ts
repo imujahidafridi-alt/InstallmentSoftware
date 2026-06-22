@@ -13,6 +13,17 @@ export const customers = pgTable('customers', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// 1.5. SUPPLIERS TABLE
+export const suppliers = pgTable('suppliers', {
+  id: uuid('id').default(sql`gen_random_uuid()`).primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  contactPerson: varchar('contact_person', { length: 255 }),
+  mobile: varchar('mobile', { length: 20 }).notNull(),
+  address: text('address'),
+  remarks: text('remarks'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // 2. DEVICES TABLE
 export const devices = pgTable('devices', {
   id: uuid('id').default(sql`gen_random_uuid()`).primaryKey(),
@@ -26,6 +37,7 @@ export const devices = pgTable('devices', {
   imei2: varchar('imei_2', { length: 15 }),
   imei3: varchar('imei_3', { length: 15 }),
   imei4: varchar('imei_4', { length: 15 }),
+  supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => {
   return {

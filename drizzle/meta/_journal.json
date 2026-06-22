@@ -15,6 +15,13 @@
       "when": 1781709800696,
       "tag": "0001_rainy_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782152808305,
+      "tag": "0002_grey_jack_power",
+      "breakpoints": true
     }
   ]
 }

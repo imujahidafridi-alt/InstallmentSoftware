@@ -13,6 +13,8 @@ from src.views.ledger_view import LedgerView
 from src.views.report_view import ReportView
 from src.views.settings_view import SettingsView
 from src.views.audit_log_view import AuditLogView
+from src.views.supplier_view import SupplierView
+from src.views.about_view import AboutView
 from src.repositories.customer_repository import CustomerRepository
 from src.repositories.device_repository import DeviceRepository
 from src.repositories.sale_repository import SaleRepository
@@ -141,14 +143,16 @@ class MainWindow(QMainWindow):
         self.nav_buttons = []
         menus = [
             ("Dashboard", 0),
-            ("Reminders", 1),
+            ("New Sale", 1),
             ("Customers", 2),
-            ("Devices Inventory", 3),
-            ("New Sale", 4),
-            ("Customer Ledgers", 5),
-            ("Financial Reports", 6),
-            ("System Settings", 7),
-            ("Audit Logs", 8)
+            ("Customer Ledgers", 3),
+            ("Reminders", 4),
+            ("Devices Inventory", 5),
+            ("Suppliers", 6),
+            ("Financial Reports", 7),
+            ("System Settings", 8),
+            ("Audit Logs", 9),
+            ("About AMC", 10)
         ]
 
         for name, index in menus:
@@ -208,25 +212,29 @@ class MainWindow(QMainWindow):
         
         # Instantiate subviews
         self.view_dashboard = DashboardView()
-        self.view_due_overdue = DueOverdueView()
-        self.view_customer = CustomerView()
-        self.view_device = DeviceView()
         self.view_sale = SaleView()
+        self.view_customer = CustomerView()
         self.view_ledger = LedgerView()
+        self.view_due_overdue = DueOverdueView()
+        self.view_device = DeviceView()
+        self.view_supplier = SupplierView()
         self.view_report = ReportView()
         self.view_settings = SettingsView()
         self.view_audit = AuditLogView()
+        self.view_about = AboutView()
 
         # Add to stack
         self.stacked_widget.addWidget(self.view_dashboard)    # Index 0
-        self.stacked_widget.addWidget(self.view_due_overdue)   # Index 1
+        self.stacked_widget.addWidget(self.view_sale)          # Index 1
         self.stacked_widget.addWidget(self.view_customer)      # Index 2
-        self.stacked_widget.addWidget(self.view_device)        # Index 3
-        self.stacked_widget.addWidget(self.view_sale)          # Index 4
-        self.stacked_widget.addWidget(self.view_ledger)        # Index 5
-        self.stacked_widget.addWidget(self.view_report)        # Index 6
-        self.stacked_widget.addWidget(self.view_settings)      # Index 7
-        self.stacked_widget.addWidget(self.view_audit)         # Index 8
+        self.stacked_widget.addWidget(self.view_ledger)        # Index 3
+        self.stacked_widget.addWidget(self.view_due_overdue)   # Index 4
+        self.stacked_widget.addWidget(self.view_device)        # Index 5
+        self.stacked_widget.addWidget(self.view_supplier)      # Index 6
+        self.stacked_widget.addWidget(self.view_report)        # Index 7
+        self.stacked_widget.addWidget(self.view_settings)      # Index 8
+        self.stacked_widget.addWidget(self.view_audit)         # Index 9
+        self.stacked_widget.addWidget(self.view_about)         # Index 10
 
         content_layout.addWidget(self.stacked_widget)
         main_layout.addWidget(content_container)
@@ -246,20 +254,22 @@ class MainWindow(QMainWindow):
         if index == 0:
             self.view_dashboard.refresh_data()
         elif index == 1:
-            self.view_due_overdue.refresh_data()
+            self.view_sale.load_dropdowns_data()
         elif index == 2:
             self.view_customer.load_customers()
         elif index == 3:
-            self.view_device.load_devices()
-        elif index == 4:
-            self.view_sale.load_dropdowns_data()
-        elif index == 5:
             self.view_ledger.load_ledgers_dropdown()
+        elif index == 4:
+            self.view_due_overdue.refresh_data()
+        elif index == 5:
+            self.view_device.load_devices()
         elif index == 6:
-            self.view_report.load_report_data()
+            self.view_supplier.load_suppliers()
         elif index == 7:
-            self.view_settings.load_settings()
+            self.view_report.load_report_data()
         elif index == 8:
+            self.view_settings.load_settings()
+        elif index == 9:
             self.view_audit.load_audit_logs()
 
     def perform_global_search(self):
@@ -291,7 +301,7 @@ class MainWindow(QMainWindow):
             # Direct them to Customer Ledgers page (index 5) and auto-select this sale
             if hasattr(self.view_ledger, "select_sale"):
                 self.view_ledger.select_sale(sale_id)
-            self.switch_view(5)
+            self.switch_view(3)
             self.txt_global_search.clear()
             self.show_notification("Installment ledger found successfully.", "success")
         else:

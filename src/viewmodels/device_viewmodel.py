@@ -65,7 +65,8 @@ class DeviceViewModel:
         ram: str,
         rom: str,
         sim_type: int,
-        imeis: List[str]
+        imeis: List[str],
+        supplier_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Registers a new device in the inventory.
@@ -98,6 +99,7 @@ class DeviceViewModel:
             "imei_2": imeis[1].strip() if sim_type >= 2 and len(imeis) > 1 and imeis[1].strip() else None,
             "imei_3": imeis[2].strip() if sim_type >= 3 and len(imeis) > 2 and imeis[2].strip() else None,
             "imei_4": imeis[3].strip() if sim_type >= 4 and len(imeis) > 3 and imeis[3].strip() else None,
+            "supplier_id": supplier_id if supplier_id else None
         }
         
         result = self.repo.create(device_data)
@@ -145,7 +147,8 @@ class DeviceViewModel:
         ram: str,
         rom: str,
         sim_type: int,
-        imeis: List[str]
+        imeis: List[str],
+        supplier_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Updates an existing device record if it's not sold.
@@ -181,6 +184,7 @@ class DeviceViewModel:
             "imei_2": imeis[1].strip() if sim_type >= 2 and len(imeis) > 1 and imeis[1].strip() else None,
             "imei_3": imeis[2].strip() if sim_type >= 3 and len(imeis) > 2 and imeis[2].strip() else None,
             "imei_4": imeis[3].strip() if sim_type >= 4 and len(imeis) > 3 and imeis[3].strip() else None,
+            "supplier_id": supplier_id if supplier_id else None
         }
 
         result = self.repo.update(device_id, device_data)

@@ -22,16 +22,16 @@ class DeviceRepository(BaseRepository):
 
     def get_by_id(self, device_id: str) -> Optional[Dict[str, Any]]:
         """
-        Gets a device by ID.
+        Gets a device by ID with nested supplier details.
         """
-        response = self.db.table("devices").select("*").eq("id", device_id).execute()
+        response = self.db.table("devices").select("*, suppliers(*)").eq("id", device_id).execute()
         return response.data[0] if response.data else None
 
     def get_all(self, limit: int = 1000) -> List[Dict[str, Any]]:
         """
-        Gets all devices.
+        Gets all devices with nested supplier details.
         """
-        response = self.db.table("devices").select("*").order("created_at", desc=True).limit(limit).execute()
+        response = self.db.table("devices").select("*, suppliers(*)").order("created_at", desc=True).limit(limit).execute()
         return response.data or []
 
     def check_imei_exists(self, imei: str, exclude_device_id: Optional[str] = None) -> bool:
@@ -54,7 +54,7 @@ class DeviceRepository(BaseRepository):
 
     def search(self, query: str) -> List[Dict[str, Any]]:
         """
-        Searches devices by name, brand, model, or any IMEI.
+        Searches devices by name, brand, model, or any IMEI with nested supplier details.
         """
         if not query:
             return self.get_all()
@@ -64,7 +64,7 @@ class DeviceRepository(BaseRepository):
             f"name.ilike.*{query}*,brand.ilike.*{query}*,model.ilike.*{query}*,"
             f"imei_1.ilike.*{query}*,imei_2.ilike.*{query}*,imei_3.ilike.*{query}*,imei_4.ilike.*{query}*"
         )
-        response = self.db.table("devices").select("*").or_(or_filter).order("name").execute()
+        response = self.db.table("devices").select("*, suppliers(*)").or_(or_filter).order("name").execute()
         return response.data or []
 
     def delete(self, device_id: str):

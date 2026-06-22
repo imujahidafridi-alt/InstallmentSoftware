@@ -30,6 +30,27 @@ CREATE INDEX IF NOT EXISTS idx_customers_mobile ON customers(mobile);
 
 
 -- =========================================================================
+-- 1.5. SUPPLIERS TABLE
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS suppliers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    contact_person VARCHAR(255),
+    mobile VARCHAR(20) NOT NULL,
+    address TEXT,
+    remarks TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    
+    -- Format validation rules
+    CONSTRAINT chk_supplier_mobile CHECK (mobile ~ '^03[0-9]{9}$')
+);
+
+-- Indexes for fast searching
+CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);
+CREATE INDEX IF NOT EXISTS idx_suppliers_mobile ON suppliers(mobile);
+
+
+-- =========================================================================
 -- 2. DEVICES TABLE
 -- =========================================================================
 CREATE TABLE IF NOT EXISTS devices (
@@ -44,6 +65,7 @@ CREATE TABLE IF NOT EXISTS devices (
     imei_2 VARCHAR(15),
     imei_3 VARCHAR(15),
     imei_4 VARCHAR(15),
+    supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
 
     -- IMEI validations: exactly 15 digits numeric
@@ -126,6 +148,7 @@ ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE installments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
 
 -- Create basic RLS policies for authenticated and anonymous users
 -- (Assumes store operators have full access)
@@ -168,4 +191,12 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow full access for authenticated users to audit_logs" ON audit_logs;
 CREATE POLICY "Allow full access for authenticated users to audit_logs"
     ON audit_logs FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+
+-- =========================================================================
+-- 8. SUPPLIERS RLS POLICIES
+-- =========================================================================
+DROP POLICY IF EXISTS "Allow full access for authenticated users to suppliers" ON suppliers;
+CREATE POLICY "Allow full access for authenticated users to suppliers"
+    ON suppliers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 

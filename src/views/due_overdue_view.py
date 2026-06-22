@@ -352,4 +352,4 @@ class DueOverdueView(QWidget):
         if sale_id and win and hasattr(win, "switch_view"):
             if hasattr(win, "view_ledger") and hasattr(win.view_ledger, "select_sale"):
                 win.view_ledger.select_sale(sale_id)
-            win.switch_view(5)
+            win.switch_view(3)

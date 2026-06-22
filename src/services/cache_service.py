@@ -61,7 +61,8 @@ class CacheService:
             "customers": "customers",
             "devices": "devices",
             "sales": "sales",
-            "payments": "payments"
+            "payments": "payments",
+            "suppliers": "suppliers"
         }
 
         # Multi-table mapping for compound categories
