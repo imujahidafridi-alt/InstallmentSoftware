@@ -12,7 +12,11 @@ from src.views.main_window import MainWindow
 
 def main():
     # Load environment variables (.env file)
-    load_dotenv()
+    if getattr(sys, 'frozen', False):
+        env_path = os.path.join(os.path.dirname(sys.executable), ".env")
+    else:
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    load_dotenv(env_path)
 
     # Verify that Supabase configuration is present
     supabase_url = os.getenv("SUPABASE_URL")

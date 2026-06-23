@@ -5,10 +5,17 @@ from typing import Any, Dict, Optional
 
 IS_TESTING = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
 
-CACHE_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "cache_test.json" if IS_TESTING else "cache.json"
-)
+if getattr(sys, 'frozen', False):
+    CACHE_FILE = os.path.join(
+        os.path.dirname(sys.executable),
+        "cache_test.json" if IS_TESTING else "cache.json"
+    )
+else:
+    CACHE_FILE = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "cache_test.json" if IS_TESTING else "cache.json"
+    )
+
 
 
 class CacheService:

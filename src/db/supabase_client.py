@@ -1,9 +1,15 @@
 import os
+import sys
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    env_path = os.path.join(os.path.dirname(sys.executable), ".env")
+else:
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")
+load_dotenv(env_path)
+
 
 class SupabaseClientManager:
     _instance: Client = None

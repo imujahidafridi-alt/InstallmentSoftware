@@ -32,3 +32,8 @@ cache.json
 
 # Logs
 *.log
+
+# Build and distribution files
+build/
+dist/
+

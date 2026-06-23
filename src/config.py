@@ -1,7 +1,13 @@
 import os
 import json
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+import sys
+
+if getattr(sys, 'frozen', False):
+    CONFIG_FILE = os.path.join(os.path.dirname(sys.executable), "config.json")
+else:
+    CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
 
 class ConfigManager:
     _cached_config = None
