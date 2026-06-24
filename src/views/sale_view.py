@@ -94,26 +94,61 @@ class CustomerSearchWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Search input
-        self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("Type to search customer…")
-        self.txt_search.setFixedHeight(36)
-        self.txt_search.setStyleSheet(
-            "QLineEdit {"
+        # Container frame
+        self.container = QFrame()
+        self.container.setFixedHeight(36)
+        self.container.setObjectName("search_container")
+        self.container.setStyleSheet(
+            "QFrame#search_container {"
             "  background: #FFFFFF;"
             "  border: 1px solid #CBD5E1;"
             "  border-radius: 6px;"
-            "  padding: 6px 12px;"
+            "  padding: 0px;"
+            "}"
+        )
+        
+        container_layout = QHBoxLayout(self.container)
+        container_layout.setContentsMargins(10, 0, 10, 0)
+        container_layout.setSpacing(6)
+
+        # Search input
+        self.txt_search = QLineEdit()
+        self.txt_search.setPlaceholderText("Type to search customer…")
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
             "  font-size: 13px;"
             "  color: #0F172A;"
-            "}"
-            "QLineEdit:focus {"
-            "  border: 1.5px solid #3B82F6;"
+            "  padding: 0px;"
             "}"
         )
         self.txt_search.textChanged.connect(self._on_text_changed)
         self.txt_search.focusOutEvent = self._on_focus_out
-        layout.addWidget(self.txt_search)
+        self.txt_search.focusInEvent = self._on_focus_in
+        container_layout.addWidget(self.txt_search, 1)
+
+        # Action Button (Dropdown arrow or clear cross)
+        self.btn_action = QPushButton("▼")
+        self.btn_action.setFixedWidth(24)
+        self.btn_action.setFixedHeight(24)
+        self.btn_action.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #64748B;"
+            "  font-size: 11px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #0F172A;"
+            "}"
+        )
+        self.btn_action.clicked.connect(self._on_action_clicked)
+        container_layout.addWidget(self.btn_action)
+
+        layout.addWidget(self.container)
 
         # Popup list (hidden by default)
         self.list_popup = QListWidget()
@@ -146,8 +181,29 @@ class CustomerSearchWidget(QWidget):
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._filter_popup)
 
+    def _on_focus_in(self, event):
+        if not self._selected_id:
+            self.container.setStyleSheet(
+                "QFrame#search_container {"
+                "  background: #FFFFFF;"
+                "  border: 1.5px solid #3B82F6;"
+                "  border-radius: 6px;"
+                "  padding: 0px;"
+                "}"
+            )
+        QLineEdit.focusInEvent(self.txt_search, event)
+
     def _on_focus_out(self, event):
         QTimer.singleShot(200, self._hide_popup)
+        if not self._selected_id:
+            self.container.setStyleSheet(
+                "QFrame#search_container {"
+                "  background: #FFFFFF;"
+                "  border: 1px solid #CBD5E1;"
+                "  border-radius: 6px;"
+                "  padding: 0px;"
+                "}"
+            )
         QLineEdit.focusOutEvent(self.txt_search, event)
 
     # ── Public API ─────────────────────────────────────────────────────
@@ -160,31 +216,74 @@ class CustomerSearchWidget(QWidget):
 
     def clear_selection(self):
         self._selected_id = ""
+        self.txt_search.blockSignals(True)
         self.txt_search.clear()
+        self.txt_search.setReadOnly(False)
+        self.txt_search.blockSignals(False)
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
+            "  font-size: 13px;"
+            "  color: #0F172A;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.container.setStyleSheet(
+            "QFrame#search_container {"
+            "  background: #FFFFFF;"
+            "  border: 1px solid #CBD5E1;"
+            "  border-radius: 6px;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.btn_action.setText("▼")
+        self.btn_action.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #64748B;"
+            "  font-size: 11px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #0F172A;"
+            "}"
+        )
         self._hide_popup()
 
     # ── Internals ──────────────────────────────────────────────────────
 
     def _on_text_changed(self, text: str):
-        # Clear confirmed selection when user edits the field
-        self._selected_id = ""
-        self._timer.stop()
-        self._timer.start(200)
+        if not self.txt_search.isReadOnly():
+            self._selected_id = ""
+            self._timer.stop()
+            self._timer.start(200)
+
+    def _on_action_clicked(self):
+        if self._selected_id:
+            self.clear_selection()
+            self.customer_selected.emit("")
+        else:
+            if self.list_popup.isVisible():
+                self._hide_popup()
+            else:
+                self.txt_search.setFocus()
+                self._filter_popup()
 
     def _filter_popup(self):
         query = self.txt_search.text().strip().lower()
         self.list_popup.clear()
 
-        if not query:
-            self._hide_popup()
-            return
-
         matches = [
             c for c in self._customers
-            if query in c.get("name", "").lower()
-            or query in c.get("father_name", "").lower()
-            or query in c.get("mobile", "").lower()
-            or query in (c.get("address") or "").lower()
+            if not query or (
+                query in c.get("name", "").lower()
+                or query in c.get("father_name", "").lower()
+                or query in c.get("mobile", "").lower()
+                or query in (c.get("address") or "").lower()
+            )
         ]
 
         if not matches:
@@ -213,12 +312,12 @@ class CustomerSearchWidget(QWidget):
         if win:
             if self.list_popup.parent() != win:
                 self.list_popup.setParent(win)
-            pos = self.txt_search.mapTo(win, self.txt_search.rect().bottomLeft())
+            pos = self.container.mapTo(win, self.container.rect().bottomLeft())
             visible_rows = min(len(matches), 5)
             self.list_popup.setGeometry(
                 pos.x(),
                 pos.y() + 2,
-                self.txt_search.width(),
+                self.container.width(),
                 visible_rows * self._POPUP_ITEM_HEIGHT
             )
             self.list_popup.raise_()
@@ -226,13 +325,47 @@ class CustomerSearchWidget(QWidget):
 
     def _on_item_clicked(self, item: QListWidgetItem):
         cust_id = item.data(Qt.ItemDataRole.UserRole)
-        # Show only the name in the search box after selection
         name_part = item.text().split("  /  ")[0]
         self._selected_id = cust_id
 
         self.txt_search.blockSignals(True)
         self.txt_search.setText(name_part)
+        self.txt_search.setReadOnly(True)
         self.txt_search.blockSignals(False)
+
+        # Style selected state
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
+            "  font-size: 13px;"
+            "  font-weight: bold;"
+            "  color: #15803D;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.container.setStyleSheet(
+            "QFrame#search_container {"
+            "  background: #F0FDF4;"
+            "  border: 1.5px solid #10B981;"
+            "  border-radius: 6px;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.btn_action.setText("×")
+        self.btn_action.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #EF4444;"
+            "  font-size: 16px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #B91C1C;"
+            "}"
+        )
 
         self._hide_popup()
         self.customer_selected.emit(cust_id)
@@ -265,26 +398,61 @@ class DeviceSearchWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Search input
-        self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("Type to search device by name, model or IMEI…")
-        self.txt_search.setFixedHeight(36)
-        self.txt_search.setStyleSheet(
-            "QLineEdit {"
+        # Container frame
+        self.container = QFrame()
+        self.container.setFixedHeight(36)
+        self.container.setObjectName("search_container")
+        self.container.setStyleSheet(
+            "QFrame#search_container {"
             "  background: #FFFFFF;"
             "  border: 1px solid #CBD5E1;"
             "  border-radius: 6px;"
-            "  padding: 6px 12px;"
+            "  padding: 0px;"
+            "}"
+        )
+        
+        container_layout = QHBoxLayout(self.container)
+        container_layout.setContentsMargins(10, 0, 10, 0)
+        container_layout.setSpacing(6)
+
+        # Search input
+        self.txt_search = QLineEdit()
+        self.txt_search.setPlaceholderText("Type to search device by name, model or IMEI…")
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
             "  font-size: 13px;"
             "  color: #0F172A;"
-            "}"
-            "QLineEdit:focus {"
-            "  border: 1.5px solid #3B82F6;"
+            "  padding: 0px;"
             "}"
         )
         self.txt_search.textChanged.connect(self._on_text_changed)
         self.txt_search.focusOutEvent = self._on_focus_out
-        layout.addWidget(self.txt_search)
+        self.txt_search.focusInEvent = self._on_focus_in
+        container_layout.addWidget(self.txt_search, 1)
+
+        # Action Button
+        self.btn_action = QPushButton("▼")
+        self.btn_action.setFixedWidth(24)
+        self.btn_action.setFixedHeight(24)
+        self.btn_action.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #64748B;"
+            "  font-size: 11px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #0F172A;"
+            "}"
+        )
+        self.btn_action.clicked.connect(self._on_action_clicked)
+        container_layout.addWidget(self.btn_action)
+
+        layout.addWidget(self.container)
 
         # Popup list (hidden by default)
         self.list_popup = QListWidget()
@@ -317,8 +485,29 @@ class DeviceSearchWidget(QWidget):
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._filter_popup)
 
+    def _on_focus_in(self, event):
+        if not self._selected_id:
+            self.container.setStyleSheet(
+                "QFrame#search_container {"
+                "  background: #FFFFFF;"
+                "  border: 1.5px solid #3B82F6;"
+                "  border-radius: 6px;"
+                "  padding: 0px;"
+                "}"
+            )
+        QLineEdit.focusInEvent(self.txt_search, event)
+
     def _on_focus_out(self, event):
         QTimer.singleShot(200, self._hide_popup)
+        if not self._selected_id:
+            self.container.setStyleSheet(
+                "QFrame#search_container {"
+                "  background: #FFFFFF;"
+                "  border: 1px solid #CBD5E1;"
+                "  border-radius: 6px;"
+                "  padding: 0px;"
+                "}"
+            )
         QLineEdit.focusOutEvent(self.txt_search, event)
 
     def set_devices(self, devices: list):
@@ -329,31 +518,75 @@ class DeviceSearchWidget(QWidget):
 
     def clear_selection(self):
         self._selected_id = ""
+        self.txt_search.blockSignals(True)
         self.txt_search.clear()
+        self.txt_search.setReadOnly(False)
+        self.txt_search.blockSignals(False)
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
+            "  font-size: 13px;"
+            "  color: #0F172A;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.container.setStyleSheet(
+            "QFrame#search_container {"
+            "  background: #FFFFFF;"
+            "  border: 1px solid #CBD5E1;"
+            "  border-radius: 6px;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.btn_action.setText("▼")
+        self.btn_action.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #64748B;"
+            "  font-size: 11px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #0F172A;"
+            "}"
+        )
         self._hide_popup()
 
     def _on_text_changed(self, text: str):
-        self._selected_id = ""
-        self._timer.stop()
-        self._timer.start(200)
+        if not self.txt_search.isReadOnly():
+            self._selected_id = ""
+            self._timer.stop()
+            self._timer.start(200)
+
+    def _on_action_clicked(self):
+        if self._selected_id:
+            self.clear_selection()
+            self.device_selected.emit("")
+        else:
+            if self.list_popup.isVisible():
+                self._hide_popup()
+            else:
+                self.txt_search.setFocus()
+                self._filter_popup()
 
     def _filter_popup(self):
         query = self.txt_search.text().strip().lower()
         self.list_popup.clear()
 
-        if not query:
-            self._hide_popup()
-            return
-
         matches = [
             d for d in self._devices
-            if query in d.get("name", "").lower()
-            or query in d.get("brand", "").lower()
-            or query in d.get("model", "").lower()
-            or query in d.get("ram", "").lower()
-            or query in d.get("rom", "").lower()
-            or query in (d.get("imei_1") or "").lower()
-            or query in (d.get("imei_2") or "").lower()
+            if not query or (
+                query in d.get("name", "").lower()
+                or query in d.get("brand", "").lower()
+                or query in d.get("model", "").lower()
+                or query in d.get("ram", "").lower()
+                or query in d.get("rom", "").lower()
+                or query in (d.get("imei_1") or "").lower()
+                or query in (d.get("imei_2") or "").lower()
+            )
         ]
 
         if not matches:
@@ -393,12 +626,12 @@ class DeviceSearchWidget(QWidget):
         if win:
             if self.list_popup.parent() != win:
                 self.list_popup.setParent(win)
-            pos = self.txt_search.mapTo(win, self.txt_search.rect().bottomLeft())
+            pos = self.container.mapTo(win, self.container.rect().bottomLeft())
             visible_rows = min(len(matches), 5)
             self.list_popup.setGeometry(
                 pos.x(),
                 pos.y() + 2,
-                self.txt_search.width(),
+                self.container.width(),
                 visible_rows * self._POPUP_ITEM_HEIGHT
             )
             self.list_popup.raise_()
@@ -411,13 +644,49 @@ class DeviceSearchWidget(QWidget):
 
         self.txt_search.blockSignals(True)
         self.txt_search.setText(name_part)
+        self.txt_search.setReadOnly(True)
         self.txt_search.blockSignals(False)
+
+        # Style selected state
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
+            "  font-size: 13px;"
+            "  font-weight: bold;"
+            "  color: #15803D;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.container.setStyleSheet(
+            "QFrame#search_container {"
+            "  background: #F0FDF4;"
+            "  border: 1.5px solid #10B981;"
+            "  border-radius: 6px;"
+            "  padding: 0px;"
+            "}"
+        )
+        self.btn_action.setText("×")
+        self.btn_action.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #EF4444;"
+            "  font-size: 16px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #B91C1C;"
+            "}"
+        )
 
         self._hide_popup()
         self.device_selected.emit(dev_id)
 
     def _hide_popup(self):
         self.list_popup.setVisible(False)
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
