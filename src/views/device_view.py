@@ -2,7 +2,7 @@ from typing import Optional, List
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel, QLineEdit, 
     QComboBox, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, 
-    QRadioButton, QButtonGroup, QMessageBox
+    QRadioButton, QButtonGroup, QMessageBox, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from src.viewmodels.device_viewmodel import DeviceViewModel
@@ -265,35 +265,37 @@ class DeviceView(QWidget):
         self.btn_show_available.setCheckable(True)
         self.btn_show_available.setChecked(True)
         self.btn_show_available.setFixedHeight(36)
+        self.btn_show_available.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         
         self.btn_show_sold = QPushButton("Sold Devices")
         self.btn_show_sold.setCheckable(True)
         self.btn_show_sold.setChecked(False)
         self.btn_show_sold.setFixedHeight(36)
+        self.btn_show_sold.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         tab_qss = (
             "QPushButton {"
-            "  background-color: transparent;"
+            "  background-color: #F8FAFC;"
             "  color: #64748B;"
             "  font-size: 13px;"
             "  font-weight: 500;"
             "  border: none;"
-            "  border-bottom: 3px solid transparent;"
+            "  border-bottom: 2px solid transparent;"
             "  border-top-left-radius: 6px;"
             "  border-top-right-radius: 6px;"
             "  border-bottom-left-radius: 0px;"
             "  border-bottom-right-radius: 0px;"
-            "  padding: 0px 16px;"
+            "  padding: 8px 16px;"
             "}"
             "QPushButton:hover {"
-            "  color: #1E293B;"
-            "  background-color: #F8FAFC;"
+            "  color: #0F172A;"
+            "  background-color: #F1F5F9;"
             "}"
             "QPushButton:checked {"
             "  background-color: #FFFFFF;"
-            "  color: #2563EB;"
+            "  color: #0F172A;"
             "  font-weight: bold;"
-            "  border-bottom: 3px solid #2563EB;"
+            "  border-bottom: 2px solid #3B82F6;"
             "}"
         )
         self.btn_show_available.setStyleSheet(tab_qss)
