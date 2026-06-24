@@ -107,14 +107,24 @@ class InstallmentViewModel:
         )
         unpaid_installments = unpaid_res.data or []
 
-        # Optimization: Fetch payments for all unpaid installments in a single query
-        unpaid_ids = [inst["id"] for inst in unpaid_installments]
+        # Optimization: Fetch payments for all unpaid installments.
+        # To avoid hitting HTTP GET URL length limits (400 Bad Request) when there are thousands of unpaid installments,
+        # we only need to query payments for installments whose status is "Partial" (since "Pending" installments
+        # have 0 payments by definition, and "Paid" installments are already filtered out of unpaid_installments).
+        partial_ids = [inst["id"] for inst in unpaid_installments if inst["status"] == "Partial"]
         payments_map = {}
-        if unpaid_ids:
-            payments_res = self.pay_repo.db.table("payments").select("installment_id, amount_received").in_("installment_id", unpaid_ids).execute()
-            for p in (payments_res.data or []):
-                inst_id = p["installment_id"]
-                payments_map[inst_id] = payments_map.get(inst_id, 0.0) + float(p["amount_received"])
+        if partial_ids:
+            chunk_size = 200
+            for i in range(0, len(partial_ids), chunk_size):
+                chunk = partial_ids[i:i+chunk_size]
+                try:
+                    payments_res = self.pay_repo.db.table("payments").select("installment_id, amount_received").in_("installment_id", chunk).execute()
+                    for p in (payments_res.data or []):
+                        inst_id = p["installment_id"]
+                        payments_map[inst_id] = payments_map.get(inst_id, 0.0) + float(p["amount_received"])
+                except Exception as e:
+                    print(f"Error fetching payments batch: {e}")
+
 
         # Categorize
         today = date.today()

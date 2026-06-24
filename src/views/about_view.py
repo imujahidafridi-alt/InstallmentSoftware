@@ -1,7 +1,8 @@
 import os
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QDialog, QTextBrowser
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
+
 
 class AboutView(QWidget):
     def __init__(self):
@@ -61,13 +62,18 @@ class AboutView(QWidget):
         lbl_sub = QLabel("Device Installment Management System")
         lbl_sub.setStyleSheet("font-size: 14px; font-weight: 500; color: #475569;")
         
+        lbl_agency = QLabel("A product of Afridi Labz")
+        lbl_agency.setStyleSheet("font-size: 13px; font-weight: bold; color: #2563EB;")
+        
         lbl_version = QLabel("Enterprise Edition — Version 1.2.0-stable (Release 2026)")
         lbl_version.setStyleSheet("font-size: 12px; color: #64748B;")
 
         brand_info_layout.addWidget(lbl_app_name)
         brand_info_layout.addWidget(lbl_sub)
+        brand_info_layout.addWidget(lbl_agency)
         brand_info_layout.addWidget(lbl_version)
         brand_info_layout.addStretch()
+
 
         header_layout.addLayout(brand_info_layout)
         header_layout.addStretch()
@@ -140,10 +146,16 @@ class AboutView(QWidget):
         legal_layout.setSpacing(8)
 
         # Developer Info
+        lbl_agency_header = QLabel("Development Agency:")
+        lbl_agency_header.setStyleSheet("font-weight: bold; color: #475569;")
+        lbl_agency_name = QLabel("Afridi Labz")
+        lbl_agency_name.setStyleSheet("color: #2563EB; font-weight: bold;")
+
         lbl_dev_header = QLabel("Lead Developer:")
         lbl_dev_header.setStyleSheet("font-weight: bold; color: #475569;")
         lbl_dev_name = QLabel("Mujahid Afridi")
         lbl_dev_name.setStyleSheet("color: #0F172A; font-weight: 500;")
+
 
         lbl_support = QLabel("Technical Support Email:")
         lbl_support.setStyleSheet("font-weight: bold; color: #475569;")
@@ -168,8 +180,11 @@ class AboutView(QWidget):
         lbl_copyright_text.setStyleSheet("color: #64748B; font-size: 11px;")
         lbl_copyright_text.setWordWrap(True)
 
+        legal_layout.addWidget(lbl_agency_header)
+        legal_layout.addWidget(lbl_agency_name)
         legal_layout.addWidget(lbl_dev_header)
         legal_layout.addWidget(lbl_dev_name)
+
         legal_layout.addWidget(lbl_support)
         legal_layout.addWidget(lbl_support_contact)
         legal_layout.addWidget(lbl_phone_tag)
@@ -203,6 +218,9 @@ class AboutView(QWidget):
         )
         btn_license.setCursor(Qt.CursorShape.PointingHandCursor)
         
+        btn_docs.clicked.connect(self.show_docs)
+        btn_license.clicked.connect(self.show_eula)
+
         footer_layout.addWidget(btn_docs)
         footer_layout.addWidget(btn_license)
         footer_layout.addStretch()
@@ -211,3 +229,159 @@ class AboutView(QWidget):
 
         main_layout.addWidget(center_card)
         main_layout.addStretch()
+
+    def show_eula(self):
+        eula_html = """
+        <h2>End-User License Agreement (EULA)</h2>
+        <p><strong>Effective Date: June 24, 2026</strong></p>
+        <p>Please read this End-User License Agreement ("Agreement") carefully before installing or using the <strong>Asif Mobile Center - Device Installment Management System</strong> ("Software").</p>
+        <p>By installing, copying, or using the Software, you agree to be bound by the terms and conditions of this Agreement. This Software is licensed, not sold, to you by <strong>Afridi Labz</strong> ("Licensor") for use strictly in accordance with the terms of this license.</p>
+
+        <h3>1. License Grant</h3>
+        <p>Licensor grants you a revocable, non-exclusive, non-transferable, limited license to download, install, and use the Software solely for your internal business operations at Asif Mobile Center, strictly in accordance with the terms of this Agreement.</p>
+
+        <h3>2. Restrictions on Use</h3>
+        <p>You agree not to, and you will not permit others to:</p>
+        <ul>
+            <li>License, sell, rent, lease, assign, distribute, host, outsource, disclose, or otherwise commercially exploit the Software.</li>
+            <li>Modify, make derivative works of, disassemble, decrypt, reverse compile, or reverse engineer any part of the Software.</li>
+            <li>Remove, alter, or obscure any proprietary notice (including copyright or trademark notices) of Licensor or its affiliates.</li>
+        </ul>
+
+        <h3>3. Intellectual Property</h3>
+        <p>The Software, including without limitation all copyrights, patents, trademarks, trade secrets, and other intellectual property rights, is and shall remain the sole and exclusive property of <strong>Afridi Labz</strong>. Any feedback, suggestions, or ideas provided by you shall become the sole property of Licensor.</p>
+
+        <h3>4. Third-Party Services</h3>
+        <p>The Software utilizes third-party database and synchronization services, including <strong>Supabase (PostgreSQL)</strong>. You acknowledge that availability, speed, and security of data transits are subject to the operational uptime and policies of these third-party providers. Licensor shall not be liable for service disruptions caused by external vendors.</p>
+
+        <h3>5. Limitation of Liability</h3>
+        <p>In no event shall <strong>Afridi Labz</strong> or its developers be liable for any special, incidental, indirect, or consequential damages whatsoever (including, but not limited to, damages for loss of profits, loss of data or other information, business interruption, or personal injury) arising out of or in any way related to the use of or inability to use the Software.</p>
+
+        <h3>6. Termination</h3>
+        <p>This Agreement shall remain in effect until terminated by you or Licensor. Licensor may, in its sole discretion, at any time and for any or no reason, suspend or terminate this Agreement with or without prior notice.</p>
+
+        <h3>7. Governing Law</h3>
+        <p>This Agreement shall be governed by and construed in accordance with the laws of Pakistan, without regard to its conflict of law principles.</p>
+
+        <hr/>
+        <p style="color: #64748B; font-size: 11px; text-align: center;">Developed by <strong>Afridi Labz</strong>. For licensing queries, email: <a href="mailto:imujahidafridi@gmail.com">imujahidafridi@gmail.com</a></p>
+        """
+        dialog = ScrollableTextDialog("End-User License Agreement (EULA)", eula_html, self)
+        dialog.exec()
+
+    def show_docs(self):
+        docs_html = """
+        <h2>System Documentation & Operations Manual</h2>
+        <p>Welcome to the <strong>Asif Mobile Center - Device Installment Management System</strong>. This documentation serves as a quick-start guide to navigate and operate the application efficiently.</p>
+
+        <h3>1. Executive Dashboard</h3>
+        <p>The <strong>Dashboard</strong> acts as your operational control center, providing high-level insights:</p>
+        <ul>
+            <li><strong>Key Performance Indicators (KPIs)</strong>: Tracks total active customers, outstanding balance, monthly collections, and overdue accounts.</li>
+            <li><strong>Installment Completion Rate</strong>: A dynamic pie chart showing the percentage of completed (Paid) vs outstanding (Pending) installments across the entire database.</li>
+            <li><strong>Monthly Collection Trend</strong>: A line chart visualizing your revenue streams and collection efficiency month-over-month.</li>
+        </ul>
+
+        <h3>2. Inventory & Supplier Management</h3>
+        <p>Before recording sales, manage your devices and suppliers under the <strong>Inventory</strong> and <strong>Suppliers</strong> panels:</p>
+        <ul>
+            <li><strong>Suppliers Directory</strong>: Manage contact details for wholesalers. Every mobile device registered can be linked to a supplier for traceability.</li>
+            <li><strong>IMEI Supplier Lookup</strong>: Instantly search or scan a 15-digit IMEI to retrieve the supplier's contact details, purchase date, and device specifications (ideal for dealing with defective units).</li>
+            <li><strong>Device Registration</strong>: Add new units with brand, model, specifications, SIM configurations (up to 4 SIMs), and associated IMEI numbers.</li>
+        </ul>
+
+        <h3>3. Sales & Installments Setup</h3>
+        <p>To register a new installment plan:</p>
+        <ol>
+            <li>Navigate to <strong>New Sale</strong>.</li>
+            <li>Select the customer and the device from the dropdown menus.</li>
+            <li>Enter the cost price, selling price, down payment, and installment duration (e.g., 6 or 12 months).</li>
+            <li>The system will automatically compute the remaining balance, the monthly installment amount, and generate the complete schedule.</li>
+        </ol>
+
+        <h3>4. Customer Ledgers & PDF Reports</h3>
+        <p>Under the <strong>Customer Ledgers</strong> tab, you can search customers by Name, Father's Name, Phone, or Address:</p>
+        <ul>
+            <li><strong>Collect Installment Payment</strong>: Log monthly payments. The system updates the installment status to "Paid", registers the transaction, and updates the ledger in real-time.</li>
+            <li><strong>Reschedule Remaining Balance</strong>: Re-calculate installment structures for customers requesting term modifications.</li>
+            <li><strong>Export Ledger (PDF)</strong>: Save a professional PDF statement of the customer's account, including purchase details, selling date, and full payment history.</li>
+            <li><strong>Preview & Print Ledger</strong>: View the ledger PDF directly in-app using the high-DPI print previewer and print to any physical or virtual printer.</li>
+        </ul>
+
+        <h3>5. Reminders & Alerts</h3>
+        <p>The <strong>Reminders</strong> panel helps you track and collect pending balances:</p>
+        <ul>
+            <li>Filter records by <strong>Overdue</strong>, <strong>Due Today</strong>, <strong>Due This Week</strong>, or <strong>Next 7 Days</strong>.</li>
+            <li>Double-clicking any record in the reminders table redirects you instantly to that customer's detailed ledger.</li>
+        </ul>
+
+        <h3>6. Cloud Synchronization & Security</h3>
+        <ul>
+            <li>The app uses a <strong>local cache synchronization engine</strong> to load data instantly, and queries Supabase in the background to update its state.</li>
+            <li>Security is enforced at the database layer using <strong>Row-Level Security (RLS) policies</strong>, ensuring data integrity and safety.</li>
+        </ul>
+        """
+        dialog = ScrollableTextDialog("System Documentation & Operations Manual", docs_html, self)
+        dialog.exec()
+
+
+class ScrollableTextDialog(QDialog):
+    def __init__(self, title, html_content, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(680, 550)
+        self.setMinimumSize(500, 400)
+        
+        # Apply clean design system styling
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #FFFFFF;
+            }
+            QTextBrowser {
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+                background-color: #F8FAFC;
+                padding: 16px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 13px;
+                color: #334155;
+            }
+            QPushButton#btn_close {
+                background-color: #1E293B;
+                color: #FFFFFF;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-weight: 600;
+                font-size: 13px;
+            }
+            QPushButton#btn_close:hover {
+                background-color: #0F172A;
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+        
+        # Title Label
+        lbl_title = QLabel(title)
+        lbl_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A;")
+        layout.addWidget(lbl_title)
+        
+        # Text Browser for rich text
+        self.browser = QTextBrowser()
+        self.browser.setHtml(html_content)
+        self.browser.setOpenExternalLinks(True)  # Allow clicking links to open default browser
+        layout.addWidget(self.browser)
+        
+        # Bottom Button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_close = QPushButton("Close")
+        btn_close.setObjectName("btn_close")
+        btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_close.clicked.connect(self.accept)
+        btn_layout.addWidget(btn_close)
+        layout.addLayout(btn_layout)
+
