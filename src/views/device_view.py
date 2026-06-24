@@ -258,73 +258,86 @@ class DeviceView(QWidget):
         list_layout.setContentsMargins(0, 0, 0, 0)
         
         search_layout = QHBoxLayout()
-        self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("Search by Device Name, Model, IMEI...")
-        self.txt_search.textChanged.connect(self.search_devices)
-        search_layout.addWidget(self.txt_search)
-        
-        # Available / Sold Toggle buttons
-        self.btn_show_available = QPushButton("Available")
+        search_layout.setSpacing(8)
+
+        # Available / Sold Tab-style buttons
+        self.btn_show_available = QPushButton("Available Devices")
         self.btn_show_available.setCheckable(True)
         self.btn_show_available.setChecked(True)
-        self.btn_show_available.setObjectName("toggle_btn_left")
-        self.btn_show_available.setFixedWidth(90)
-        self.btn_show_available.setFixedHeight(30)
+        self.btn_show_available.setFixedHeight(36)
         
-        self.btn_show_sold = QPushButton("Sold")
+        self.btn_show_sold = QPushButton("Sold Devices")
         self.btn_show_sold.setCheckable(True)
         self.btn_show_sold.setChecked(False)
-        self.btn_show_sold.setObjectName("toggle_btn_right")
-        self.btn_show_sold.setFixedWidth(90)
-        self.btn_show_sold.setFixedHeight(30)
+        self.btn_show_sold.setFixedHeight(36)
 
-        toggle_qss = (
-            "QPushButton#toggle_btn_left {"
-            "  background-color: #E2E8F0;"
-            "  color: #475569;"
-            "  border: 1px solid #CBD5E1;"
+        tab_qss = (
+            "QPushButton {"
+            "  background-color: transparent;"
+            "  color: #64748B;"
+            "  font-size: 13px;"
+            "  font-weight: 500;"
+            "  border: none;"
+            "  border-bottom: 3px solid transparent;"
             "  border-top-left-radius: 6px;"
-            "  border-bottom-left-radius: 6px;"
-            "  border-top-right-radius: 0px;"
-            "  border-bottom-right-radius: 0px;"
-            "  font-weight: bold;"
-            "}"
-            "QPushButton#toggle_btn_left:checked {"
-            "  background-color: #3B82F6;"
-            "  color: #FFFFFF;"
-            "  border-color: #3B82F6;"
-            "}"
-            "QPushButton#toggle_btn_right {"
-            "  background-color: #E2E8F0;"
-            "  color: #475569;"
-            "  border: 1px solid #CBD5E1;"
-            "  border-top-left-radius: 0px;"
-            "  border-bottom-left-radius: 0px;"
             "  border-top-right-radius: 6px;"
-            "  border-bottom-right-radius: 6px;"
-            "  font-weight: bold;"
+            "  border-bottom-left-radius: 0px;"
+            "  border-bottom-right-radius: 0px;"
+            "  padding: 0px 16px;"
             "}"
-            "QPushButton#toggle_btn_right:checked {"
-            "  background-color: #3B82F6;"
-            "  color: #FFFFFF;"
-            "  border-color: #3B82F6;"
+            "QPushButton:hover {"
+            "  color: #1E293B;"
+            "  background-color: #F8FAFC;"
+            "}"
+            "QPushButton:checked {"
+            "  background-color: #FFFFFF;"
+            "  color: #2563EB;"
+            "  font-weight: bold;"
+            "  border-bottom: 3px solid #2563EB;"
             "}"
         )
-        self.btn_show_available.setStyleSheet(toggle_qss)
-        self.btn_show_sold.setStyleSheet(toggle_qss)
+        self.btn_show_available.setStyleSheet(tab_qss)
+        self.btn_show_sold.setStyleSheet(tab_qss)
 
         self.toggle_group = QButtonGroup(self)
         self.toggle_group.addButton(self.btn_show_available)
         self.toggle_group.addButton(self.btn_show_sold)
         self.toggle_group.buttonToggled.connect(self.on_filter_toggle_changed)
 
+        # Add tabs to the left of the search box
         search_layout.addWidget(self.btn_show_available)
         search_layout.addWidget(self.btn_show_sold)
+        
+        # Add a small spacing spacer between tabs and search input
+        search_layout.addSpacing(12)
 
+        # Search input
+        self.txt_search = QLineEdit()
+        self.txt_search.setPlaceholderText("Search by Device Name, Model, IMEI...")
+        self.txt_search.textChanged.connect(self.search_devices)
+        self.txt_search.setFixedHeight(36)
+        self.txt_search.setStyleSheet(
+            "QLineEdit {"
+            "  background: #FFFFFF;"
+            "  border: 1px solid #CBD5E1;"
+            "  border-radius: 6px;"
+            "  padding: 6px 12px;"
+            "  font-size: 13px;"
+            "  color: #0F172A;"
+            "}"
+            "QLineEdit:focus {"
+            "  border: 1.5px solid #3B82F6;"
+            "}"
+        )
+        search_layout.addWidget(self.txt_search, 1)
+
+        # Refresh button
         self.btn_refresh = QPushButton("Refresh Inventory")
         self.btn_refresh.setObjectName("btn_secondary")
+        self.btn_refresh.setFixedHeight(36)
         self.btn_refresh.clicked.connect(self.load_devices)
         search_layout.addWidget(self.btn_refresh)
+        
         list_layout.addLayout(search_layout)
  
         self.table_devices = QTableWidget(0, 6)
