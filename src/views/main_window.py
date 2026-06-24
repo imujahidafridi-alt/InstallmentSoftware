@@ -359,25 +359,55 @@ class MainWindow(QMainWindow):
                 from PyQt6.QtCore import Qt
                 
                 dialog = QDialog(self)
-                dialog.setWindowTitle("Cloud Sync")
+                dialog.setWindowTitle("Auto Backup")
                 dialog.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint)
-                dialog.setFixedSize(350, 120)
-                dialog.setStyleSheet("QDialog { background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; }")
+                
+                # Center the dialog on the main window
+                dialog_width = 380
+                dialog_height = 140
+                dialog.setFixedSize(dialog_width, dialog_height)
+                if self.geometry():
+                    parent_geo = self.geometry()
+                    x = parent_geo.x() + (parent_geo.width() - dialog_width) // 2
+                    y = parent_geo.y() + (parent_geo.height() - dialog_height) // 2
+                    dialog.move(x, y)
+
+                dialog.setStyleSheet("""
+                    QDialog {
+                        background-color: #FFFFFF;
+                        border: 1px solid #E2E8F0;
+                        border-radius: 12px;
+                    }
+                """)
                 
                 dlg_layout = QVBoxLayout(dialog)
-                dlg_layout.setContentsMargins(20, 20, 20, 20)
-                dlg_layout.setSpacing(10)
+                dlg_layout.setContentsMargins(24, 24, 24, 24)
+                dlg_layout.setSpacing(12)
                 
+                # Header label (static)
+                lbl_title = QLabel("Auto Backup in Progress")
+                lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #0F172A; background: transparent; border: none;")
+                dlg_layout.addWidget(lbl_title)
+                
+                # Status message label (dynamic)
                 lbl_msg = QLabel("Backing up database to Google Drive...")
-                lbl_msg.setStyleSheet("font-size: 13px; font-weight: bold; color: #1E293B;")
+                lbl_msg.setStyleSheet("font-size: 12px; color: #64748B; background: transparent; border: none;")
                 dlg_layout.addWidget(lbl_msg)
                 
+                # Progress Bar with a gorgeous gradient
                 bar = QProgressBar()
-                bar.setFixedHeight(12)
+                bar.setFixedHeight(8)
                 bar.setTextVisible(False)
                 bar.setStyleSheet("""
-                    QProgressBar { border: 1px solid #E2E8F0; border-radius: 6px; background-color: #F1F5F9; }
-                    QProgressBar::chunk { background-color: #3B82F6; border-radius: 5px; }
+                    QProgressBar {
+                        border: none;
+                        border-radius: 4px;
+                        background-color: #F1F5F9;
+                    }
+                    QProgressBar::chunk {
+                        background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #3B82F6, stop:1 #60A5FA);
+                        border-radius: 4px;
+                    }
                 """)
                 bar.setRange(0, 100)
                 dlg_layout.addWidget(bar)
