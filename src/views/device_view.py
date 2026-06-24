@@ -265,12 +265,14 @@ class DeviceView(QWidget):
         self.btn_show_available.setCheckable(True)
         self.btn_show_available.setChecked(True)
         self.btn_show_available.setFixedHeight(36)
+        self.btn_show_available.setMinimumWidth(170)
         self.btn_show_available.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         
         self.btn_show_sold = QPushButton("Sold Devices")
         self.btn_show_sold.setCheckable(True)
         self.btn_show_sold.setChecked(False)
         self.btn_show_sold.setFixedHeight(36)
+        self.btn_show_sold.setMinimumWidth(130)
         self.btn_show_sold.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         tab_qss = (
@@ -278,7 +280,7 @@ class DeviceView(QWidget):
             "  background-color: #F8FAFC;"
             "  color: #64748B;"
             "  font-size: 13px;"
-            "  font-weight: 500;"
+            "  font-weight: normal;"
             "  border: none;"
             "  border-bottom: 2px solid transparent;"
             "  border-top-left-radius: 6px;"
@@ -294,7 +296,7 @@ class DeviceView(QWidget):
             "QPushButton:checked {"
             "  background-color: #FFFFFF;"
             "  color: #0F172A;"
-            "  font-weight: bold;"
+            "  font-weight: normal;"
             "  border-bottom: 2px solid #3B82F6;"
             "}"
         )
