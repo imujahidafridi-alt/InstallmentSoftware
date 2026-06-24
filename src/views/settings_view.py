@@ -36,7 +36,10 @@ class DatabaseResetWorker(QThread):
             # 5. Customers
             db.table("customers").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             time.sleep(0.5)
-            # 6. Audit Logs
+            # 6. Suppliers
+            db.table("suppliers").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            time.sleep(0.5)
+            # 7. Audit Logs
             db.table("audit_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             time.sleep(0.5)
 
