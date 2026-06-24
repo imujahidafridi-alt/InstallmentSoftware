@@ -14,6 +14,8 @@ from src.views.reschedule_dialog import RescheduleDialog
 from datetime import datetime
 from src.services.cache_service import CacheService
 from src.config import ConfigManager
+from src.views.components.search_select_widget import SearchSelectWidget
+
 
 class LedgerListWorker(QThread):
     sync_finished = pyqtSignal(list)
@@ -125,272 +127,92 @@ class PdfExportWorker(QThread):
             self.failed.emit(str(e))
 
 
-class LedgerSearchWidget(QWidget):
+class LedgerSearchWidget(SearchSelectWidget):
     """
-    A styled inline ledger-search field that shows a light-theme
-    popup list. Each suggestion row shows:
-        Customer Name  /  Father Name  /  Device  /  Selling Price
-    Selecting a row commits the choice and hides the popup.
+    A styled inline ledger-search field utilizing the reusable SearchSelectWidget.
     """
-
     ledger_selected = pyqtSignal(str)   # emits sale_id or ""
 
-    _POPUP_ITEM_HEIGHT = 52   # px per row
-
     def __init__(self, parent=None):
-        super().__init__(parent)
-        self._sales: list  = []
-        self._selected_id: str = ""
-        self._setup_ui()
-
-    def _setup_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        self.setFixedHeight(36)
-
-        # Search input
-        self.txt_search = QLineEdit()
-        self.txt_search.setPlaceholderText("🔍  Type to search ledger by customer, mobile, device, or IMEI…")
-        self.txt_search.setFixedHeight(36)
-        self.txt_search.setClearButtonEnabled(True)
-        self.txt_search.setStyleSheet(
-            "QLineEdit {"
-            "  background: #FFFFFF;"
-            "  border: 1px solid #CBD5E1;"
-            "  border-top-left-radius: 6px;"
-            "  border-bottom-left-radius: 6px;"
-            "  border-top-right-radius: 0px;"
-            "  border-bottom-right-radius: 0px;"
-            "  padding: 6px 12px;"
-            "  font-size: 13px;"
-            "  color: #0F172A;"
-            "}"
-            "QLineEdit:focus {"
-            "  border: 1.5px solid #3B82F6;"
-            "  border-right: none;"
-            "}"
-        )
-        self.txt_search.textChanged.connect(self._on_text_changed)
-        self.txt_search.focusOutEvent = self._on_focus_out
-        self.txt_search.mousePressEvent = self._on_mouse_press
-        layout.addWidget(self.txt_search)
-
-        # Dropdown arrow button
-        self.btn_dropdown = QToolButton()
-        self.btn_dropdown.setText("▼")
-        self.btn_dropdown.setFixedHeight(36)
-        self.btn_dropdown.setFixedWidth(30)
-        self.btn_dropdown.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.btn_dropdown.setStyleSheet(
-            "QToolButton {"
-            "  background: #F1F5F9;"
-            "  border: 1px solid #CBD5E1;"
-            "  border-left: none;"
-            "  border-top-right-radius: 6px;"
-            "  border-bottom-right-radius: 6px;"
-            "  color: #475569;"
-            "  font-size: 10px;"
-            "}"
-            "QToolButton:hover {"
-            "  background: #E2E8F0;"
-            "}"
-        )
-        self.btn_dropdown.clicked.connect(self._toggle_popup)
-        layout.addWidget(self.btn_dropdown)
-
-        # Popup list (hidden by default)
-        self.list_popup = QListWidget()
-        self.list_popup.setVisible(False)
-        self.list_popup.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.list_popup.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.list_popup.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.list_popup.setStyleSheet(
-            "QListWidget {"
-            "  background: #FFFFFF;"
-            "  border: 1px solid #CBD5E1;"
-            "  border-radius: 6px;"
-            "  outline: none;"
-            "}"
-            "QListWidget::item {"
-            "  padding: 8px 12px;"
-            "  border-bottom: 1px solid #F1F5F9;"
-            "  color: #0F172A;"
-            "  font-size: 12px;"
-            "}"
-            "QListWidget::item:selected, QListWidget::item:hover {"
-            "  background: #EFF6FF;"
-            "  color: #1D4ED8;"
-            "}"
-        )
-        self.list_popup.itemClicked.connect(self._on_item_clicked)
-
-        # Debounce timer
-        self._timer = QTimer(self)
-        self._timer.setSingleShot(True)
-        self._timer.timeout.connect(self._filter_popup)
-
-    def _toggle_popup(self):
-        if self.list_popup.isVisible():
-            self._hide_popup()
-        else:
-            self.txt_search.setFocus()
-            self._filter_popup()
-
-    def _on_mouse_press(self, event):
-        QLineEdit.mousePressEvent(self.txt_search, event)
-        if not self.list_popup.isVisible():
-            self._filter_popup()
-
-    def _on_focus_out(self, event):
-        # Prevent auto-hide if dropdown button is clicked (let toggle handler do the work)
-        if self.btn_dropdown.underMouse():
-            QLineEdit.focusOutEvent(self.txt_search, event)
-            return
-        QTimer.singleShot(200, self._hide_popup)
-        QLineEdit.focusOutEvent(self.txt_search, event)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._update_popup_geometry()
-
-    def moveEvent(self, event):
-        super().moveEvent(event)
-        self._update_popup_geometry()
-
-    def _update_popup_geometry(self):
-        if not self.list_popup.isVisible():
-            return
-        win = self.window()
-        if win:
-            if self.list_popup.parent() != win:
-                self.list_popup.setParent(win)
-            pos = self.txt_search.mapTo(win, self.txt_search.rect().bottomLeft())
-            visible_rows = min(max(self.list_popup.count(), 1), 5)
-            self.list_popup.setGeometry(
-                pos.x(),
-                pos.y() + 2,
-                self.width(),
-                visible_rows * self._POPUP_ITEM_HEIGHT
-            )
-            self.list_popup.raise_()
+        super().__init__(placeholder="Type to search ledger by customer, mobile, device, or IMEI…", parent=parent)
+        self.item_selected.connect(self.ledger_selected.emit)
 
     def set_sales(self, sales: list):
-        self._sales = sales
-
-    def selected_id(self) -> str:
-        return self._selected_id
+        self.set_items(sales)
 
     def set_selected_id(self, sale_id: str):
         self._selected_id = sale_id
-        for sale in self._sales:
+        if not sale_id:
+            self.clear_selection()
+            return
+        for sale in self._items:
             if sale["id"] == sale_id:
                 formatted_price = ConfigManager.format_currency(sale['selling_price'])
                 father = sale['customers'].get('father_name') or '—'
                 display = f"{sale['customers']['name']} | {father} | {sale['devices']['brand']} {sale['devices']['model']} ({formatted_price})"
-                self.txt_search.blockSignals(True)
-                self.txt_search.setText(display)
-                self.txt_search.blockSignals(False)
+                self.set_selection(sale_id, display)
                 break
 
-    def clear_selection(self):
-        self._selected_id = ""
-        self.txt_search.clear()
-        self._hide_popup()
-
-    def _on_text_changed(self, text: str):
-        if not text:
-            self._selected_id = ""
-            self.ledger_selected.emit("")
-        self._timer.stop()
-        self._timer.start(200)
-
-    def _filter_popup(self):
-        query = self.txt_search.text().strip().lower()
-        self.list_popup.clear()
-
-        # Empty or active sale format is considered "no query" to list all
-        is_empty_or_selected = not query or self._selected_id
-        
+    def filter_items(self, query: str, items: list) -> list:
+        if not query:
+            return items[:10]
+            
         matches = []
-        if is_empty_or_selected:
-            matches = self._sales[:10]
-        else:
-            for sale in self._sales:
-                cust = sale.get("customers") or {}
-                dev = sale.get("devices") or {}
-                
-                cust_name = cust.get("name", "").lower()
-                father_name = cust.get("father_name", "").lower()
-                mobile = cust.get("mobile", "").lower()
-                address = cust.get("address", "").lower() if cust.get("address") else ""
-                brand = dev.get("brand", "").lower()
-                model = dev.get("model", "").lower()
-                imei_1 = dev.get("imei_1", "").lower() if dev.get("imei_1") else ""
-                
-                if (query in cust_name or 
-                    query in father_name or 
-                    query in mobile or 
-                    query in address or
-                    query in brand or 
-                    query in model or 
-                    query in imei_1 or 
-                    query in sale.get("id", "").lower()):
-                    matches.append(sale)
+        for sale in items:
+            cust = sale.get("customers") or {}
+            dev = sale.get("devices") or {}
+            
+            cust_name = cust.get("name", "").lower()
+            father_name = cust.get("father_name", "").lower()
+            mobile = cust.get("mobile", "").lower()
+            address = cust.get("address", "").lower() if cust.get("address") else ""
+            brand = dev.get("brand", "").lower()
+            model = dev.get("model", "").lower()
+            imei_1 = dev.get("imei_1", "").lower() if dev.get("imei_1") else ""
+            
+            if (query in cust_name or 
+                query in father_name or 
+                query in mobile or 
+                query in address or
+                query in brand or 
+                query in model or 
+                query in imei_1 or 
+                query in sale.get("id", "").lower()):
+                matches.append(sale)
+        return matches
 
-        if not matches:
-            item = QListWidgetItem("No matching ledgers found")
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.list_popup.addItem(item)
-        else:
-            for sale in matches[:20]:
-                cust = sale.get("customers") or {}
-                dev = sale.get("devices") or {}
-                father = cust.get("father_name") or "—"
-                address = cust.get("address") or "—"
-                mobile = cust.get("mobile") or "—"
-                
-                display = f"{cust.get('name')}  |  {father}  |  {address}  |  {mobile}"
-
-                item = QListWidgetItem(display)
-                item.setData(Qt.ItemDataRole.UserRole, sale["id"])
-                item.setToolTip(
-                    f"Customer: {cust.get('name')}\n"
-                    f"Father:   {father}\n"
-                    f"Address:  {address}\n"
-                    f"Mobile:   {mobile}"
-                )
-                self.list_popup.addItem(item)
-
-        win = self.window()
-        if win and self.list_popup.parent() != win:
-            self.list_popup.setParent(win)
-        self.list_popup.show()
-        self._update_popup_geometry()
+    def format_item(self, sale) -> tuple:
+        cust = sale.get("customers") or {}
+        dev = sale.get("devices") or {}
+        father = cust.get("father_name") or "—"
+        address = cust.get("address") or "—"
+        mobile = cust.get("mobile") or "—"
+        
+        display = f"{cust.get('name')}  |  {father}  |  {address}  |  {mobile}"
+        
+        tooltip = (
+            f"Customer: {cust.get('name')}\n"
+            f"Father:   {father}\n"
+            f"Address:  {address}\n"
+            f"Mobile:   {mobile}"
+        )
+        return display, tooltip, sale["id"]
 
     def _on_item_clicked(self, item: QListWidgetItem):
         sale_id = item.data(Qt.ItemDataRole.UserRole)
         if not sale_id:
             return
             
-        self._selected_id = sale_id
-        
-        for sale in self._sales:
+        for sale in self._items:
             if sale["id"] == sale_id:
                 formatted_price = ConfigManager.format_currency(sale['selling_price'])
                 father = sale['customers'].get('father_name') or '—'
                 display = f"{sale['customers']['name']} | {father} | {sale['devices']['brand']} {sale['devices']['model']} ({formatted_price})"
-                self.txt_search.blockSignals(True)
-                self.txt_search.setText(display)
-                self.txt_search.blockSignals(False)
+                
+                self.set_selection(sale_id, display)
+                self.item_selected.emit(sale_id)
                 break
 
-        self._hide_popup()
-        self.ledger_selected.emit(sale_id)
-
-    def _hide_popup(self):
-        self.list_popup.setVisible(False)
-        self.list_popup.clear()
 
 
 class LedgerView(QWidget):
