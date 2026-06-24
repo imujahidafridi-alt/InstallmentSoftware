@@ -37,3 +37,7 @@ cache.json
 build/
 dist/
 
+# Google credentials
+client_secrets.json
+google_token.json
+

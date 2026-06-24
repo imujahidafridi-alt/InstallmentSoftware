@@ -30,7 +30,7 @@ class LoginView(QWidget):
 
     def init_ui(self):
         self.setObjectName("login_window")
-        self.setWindowTitle("Sign In - Asif Mobile Center")
+        self.setWindowTitle("Sign In - EasyQist")
         self.resize(460, 650)
         self.setMinimumSize(450, 630)
         self.setMaximumSize(520, 750)
@@ -63,7 +63,7 @@ class LoginView(QWidget):
         lbl_app_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(lbl_app_logo)
 
-        lbl_app_title = QLabel("Asif Mobile Center")
+        lbl_app_title = QLabel("EasyQist")
         lbl_app_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #0F172A;")
         lbl_app_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(lbl_app_title)

@@ -20,7 +20,7 @@ class ConfigManager:
         if not os.path.exists(CONFIG_FILE):
             default_config = {
                 "theme": "light",
-                "shop_name": "Asif Mobile Center",
+                "shop_name": "EasyQist Mobile",
                 "shop_address": "Main Market, Commercial Area",
                 "shop_contact": "Ph: 0300-1234567",
                 "decimal_places": 2

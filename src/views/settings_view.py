@@ -4,6 +4,8 @@ from PyQt6.QtWidgets import (
     QInputDialog, QHBoxLayout, QRadioButton, QButtonGroup
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+
+
 from src.config import ConfigManager
 
 class DatabaseResetWorker(QThread):
@@ -128,6 +130,8 @@ class SettingsView(QWidget):
 
         main_layout.addWidget(form_card)
 
+
+
         # ─── Danger Zone Card ──────────────────────────────────────────
         danger_card = QFrame()
         danger_card.setObjectName("form_card")
@@ -190,6 +194,8 @@ class SettingsView(QWidget):
 
         except Exception as e:
             print(f"Error loading settings: {e}")
+
+
 
     def save_settings(self, *args):
         name    = self.txt_shop_name.text().strip()
@@ -267,3 +273,5 @@ class SettingsView(QWidget):
         self.btn_reset.setEnabled(True)
         self.btn_reset.setText("Reset System Database")
         self.show_toast(f"Database reset failed: {error_msg}", "error")
+
+

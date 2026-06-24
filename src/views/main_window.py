@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame, 
-    QLabel, QLineEdit, QPushButton, QStackedWidget, QMessageBox
+    QLabel, QLineEdit, QPushButton, QStackedWidget, QMessageBox,
+    QApplication
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 import socket
@@ -15,9 +16,11 @@ from src.views.settings_view import SettingsView
 from src.views.audit_log_view import AuditLogView
 from src.views.supplier_view import SupplierView
 from src.views.about_view import AboutView
+from src.views.backup_view import BackupView
 from src.repositories.customer_repository import CustomerRepository
 from src.repositories.device_repository import DeviceRepository
 from src.repositories.sale_repository import SaleRepository
+
 from src.views.components.q_notification import QNotification
 
 class NetworkCheckWorker(QThread):
@@ -99,7 +102,7 @@ class MainWindow(QMainWindow):
         self.update_clock() # Update immediately
 
     def init_ui(self):
-        self.setWindowTitle("Asif Mobile Center - Device Installment Management System")
+        self.setWindowTitle("EasyQist - Device Installment Management System")
         self.resize(1100, 750)
 
         # Main Central Container
@@ -132,7 +135,7 @@ class MainWindow(QMainWindow):
             lbl_brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl_brand.setStyleSheet("padding: 5px;")
         else:
-            lbl_brand.setText("Asif Mobile Center")
+            lbl_brand.setText("EasyQist")
             lbl_brand.setStyleSheet("font-size: 16px; font-weight: bold; padding: 10px; color: #3B82F6;")
             lbl_brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
@@ -151,8 +154,10 @@ class MainWindow(QMainWindow):
             ("Suppliers", 6),
             ("Financial Reports", 7),
             ("System Settings", 8),
-            ("Audit Logs", 9),
-            ("About AMC", 10)
+            ("Backup Center", 9),
+            ("Audit Logs", 10),
+            ("About AMC", 11)
+
         ]
 
         for name, index in menus:
@@ -220,6 +225,7 @@ class MainWindow(QMainWindow):
         self.view_supplier = SupplierView()
         self.view_report = ReportView()
         self.view_settings = SettingsView()
+        self.view_backup = BackupView()
         self.view_audit = AuditLogView()
         self.view_about = AboutView()
 
@@ -233,8 +239,9 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.view_supplier)      # Index 6
         self.stacked_widget.addWidget(self.view_report)        # Index 7
         self.stacked_widget.addWidget(self.view_settings)      # Index 8
-        self.stacked_widget.addWidget(self.view_audit)         # Index 9
-        self.stacked_widget.addWidget(self.view_about)         # Index 10
+        self.stacked_widget.addWidget(self.view_backup)        # Index 9
+        self.stacked_widget.addWidget(self.view_audit)         # Index 10
+        self.stacked_widget.addWidget(self.view_about)         # Index 11
 
         content_layout.addWidget(self.stacked_widget)
         main_layout.addWidget(content_container)
@@ -270,7 +277,10 @@ class MainWindow(QMainWindow):
         elif index == 8:
             self.view_settings.load_settings()
         elif index == 9:
+            self.view_backup.load_backup_settings()
+        elif index == 10:
             self.view_audit.load_audit_logs()
+
 
     def perform_global_search(self):
         """
@@ -337,10 +347,85 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Safely stops and reaps all active background threads to avoid destruction errors."""
+        # Check auto backup setting on close
+        try:
+            from src.config import ConfigManager
+            from src.services.backup_service import BackupService
+            
+            config = ConfigManager.load_config()
+            if config.get("auto_backup", False) and BackupService.is_google_configured() and BackupService.get_credentials():
+                # Show a beautiful modal dialog to indicate backup is in progress
+                from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar
+                from PyQt6.QtCore import Qt
+                
+                dialog = QDialog(self)
+                dialog.setWindowTitle("Cloud Sync")
+                dialog.setWindowFlags(Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint)
+                dialog.setFixedSize(350, 120)
+                dialog.setStyleSheet("QDialog { background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; }")
+                
+                dlg_layout = QVBoxLayout(dialog)
+                dlg_layout.setContentsMargins(20, 20, 20, 20)
+                dlg_layout.setSpacing(10)
+                
+                lbl_msg = QLabel("Backing up database to Google Drive...")
+                lbl_msg.setStyleSheet("font-size: 13px; font-weight: bold; color: #1E293B;")
+                dlg_layout.addWidget(lbl_msg)
+                
+                bar = QProgressBar()
+                bar.setFixedHeight(12)
+                bar.setTextVisible(False)
+                bar.setStyleSheet("""
+                    QProgressBar { border: 1px solid #E2E8F0; border-radius: 6px; background-color: #F1F5F9; }
+                    QProgressBar::chunk { background-color: #3B82F6; border-radius: 5px; }
+                """)
+                bar.setRange(0, 100)
+                dlg_layout.addWidget(bar)
+                
+                dialog.show()
+                QApplication.processEvents()
+                
+                lbl_msg.setText("Creating compressed database backup...")
+                bar.setValue(15)
+                QApplication.processEvents()
+                
+                zip_path, zip_filename = BackupService.create_database_backup()
+                bar.setValue(35)
+                lbl_msg.setText("Uploading backup to Google Drive...")
+                QApplication.processEvents()
+                
+                def upload_progress(p):
+                    bar.setValue(35 + int(p * 0.65))
+                    QApplication.processEvents()
+                    
+                success, result = BackupService.upload_backup_to_drive(zip_path, zip_filename, progress_callback=upload_progress)
+                
+                if success:
+                    try:
+                        from datetime import datetime
+                        config = ConfigManager.load_config()
+                        config["last_drive_backup"] = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+                        ConfigManager.save_config(config)
+                    except Exception as e:
+                        print(f"Failed to update auto-backup timestamp: {e}")
+
+                    try:
+                        from src.services.audit_log_service import AuditLogService
+                        AuditLogService().log_action("Uploaded automatic database backup to Google Drive on close")
+                    except Exception:
+                        pass
+                
+                dialog.close()
+        except Exception as e:
+            print(f"Auto-backup on close failed: {e}")
+
         views = [
             self.view_dashboard, self.view_due_overdue, self.view_customer, self.view_device, 
-            self.view_sale, self.view_ledger, self.view_report, self.view_audit, self.view_settings
+            self.view_sale, self.view_ledger, self.view_report, self.view_audit, self.view_settings,
+            self.view_backup, self.view_about
         ]
+
+
         
         # Stop global search worker if running
         if self.search_worker and self.search_worker.isRunning():
@@ -404,5 +489,13 @@ class MainWindow(QMainWindow):
             if hasattr(view, "reset_worker") and view.reset_worker and view.reset_worker.isRunning():
                 view.reset_worker.terminate()
                 view.reset_worker.wait()
+            # Check backup view workers
+            if hasattr(view, "auth_worker") and view.auth_worker and view.auth_worker.isRunning():
+                view.auth_worker.terminate()
+                view.auth_worker.wait()
+            if hasattr(view, "upload_worker") and view.upload_worker and view.upload_worker.isRunning():
+                view.upload_worker.terminate()
+                view.upload_worker.wait()
                 
         event.accept()
+

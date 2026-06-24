@@ -56,7 +56,7 @@ class AboutView(QWidget):
         brand_info_layout = QVBoxLayout()
         brand_info_layout.setSpacing(4)
         
-        lbl_app_name = QLabel("Asif Mobile Center")
+        lbl_app_name = QLabel("EasyQist")
         lbl_app_name.setStyleSheet("font-size: 20px; font-weight: bold; color: #0F172A;")
         
         lbl_sub = QLabel("Device Installment Management System")
@@ -171,7 +171,7 @@ class AboutView(QWidget):
         lbl_copyright = QLabel("Copyright & Proprietary License:")
         lbl_copyright.setStyleSheet("font-weight: bold; color: #475569;")
         lbl_copyright_text = QLabel(
-            "© 2026 Asif Mobile Center. All Rights Reserved.\n"
+            "© 2026 Afridi Labz. All Rights Reserved.\n"
             "This software product is protected under international copyright "
             "and intellectual property laws. Unauthorized duplication, reverse engineering, "
             "or redistribution of this application or any part thereof is strictly prohibited "
@@ -234,11 +234,11 @@ class AboutView(QWidget):
         eula_html = """
         <h2>End-User License Agreement (EULA)</h2>
         <p><strong>Effective Date: June 24, 2026</strong></p>
-        <p>Please read this End-User License Agreement ("Agreement") carefully before installing or using the <strong>Asif Mobile Center - Device Installment Management System</strong> ("Software").</p>
+        <p>Please read this End-User License Agreement ("Agreement") carefully before installing or using the <strong>EasyQist - Device Installment Management System</strong> ("Software").</p>
         <p>By installing, copying, or using the Software, you agree to be bound by the terms and conditions of this Agreement. This Software is licensed, not sold, to you by <strong>Afridi Labz</strong> ("Licensor") for use strictly in accordance with the terms of this license.</p>
 
         <h3>1. License Grant</h3>
-        <p>Licensor grants you a revocable, non-exclusive, non-transferable, limited license to download, install, and use the Software solely for your internal business operations at Asif Mobile Center, strictly in accordance with the terms of this Agreement.</p>
+        <p>Licensor grants you a revocable, non-exclusive, non-transferable, limited license to download, install, and use the Software solely for your internal business operations, strictly in accordance with the terms of this Agreement.</p>
 
         <h3>2. Restrictions on Use</h3>
         <p>You agree not to, and you will not permit others to:</p>
@@ -272,7 +272,7 @@ class AboutView(QWidget):
     def show_docs(self):
         docs_html = """
         <h2>System Documentation & Operations Manual</h2>
-        <p>Welcome to the <strong>Asif Mobile Center - Device Installment Management System</strong>. This documentation serves as a quick-start guide to navigate and operate the application efficiently.</p>
+        <p>Welcome to the <strong>EasyQist - Device Installment Management System</strong>. This documentation serves as a quick-start guide to navigate and operate the application efficiently.</p>
 
         <h3>1. Executive Dashboard</h3>
         <p>The <strong>Dashboard</strong> acts as your operational control center, providing high-level insights:</p>

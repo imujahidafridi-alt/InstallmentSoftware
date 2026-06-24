@@ -1,13 +1,13 @@
-; Inno Setup Script for Asif Mobile Center Installer
+; Inno Setup Script for EasyQist Installer
 
 [Setup]
-AppName=Asif Mobile Center
+AppName=EasyQist
 AppVersion=1.2.0
-AppPublisher=Asif Mobile Center
-DefaultDirName={localappdata}\Asif Mobile Center
-DefaultGroupName=Asif Mobile Center
+AppPublisher=Afridi Labz
+DefaultDirName={localappdata}\EasyQist
+DefaultGroupName=EasyQist
 OutputDir=dist
-OutputBaseFilename=Asif_Mobile_Center_Setup
+OutputBaseFilename=EasyQist_Setup
 SetupIconFile=src\views\assets\app_icon.ico
 Compression=lzma2
 SolidCompression=yes
@@ -18,13 +18,13 @@ DisableProgramGroupPage=yes
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "dist\Asif Mobile Center.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\EasyQist.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: ".env"; DestDir: "{app}"; Flags: ignoreversion
 
 
 [Icons]
-Name: "{group}\Asif Mobile Center"; Filename: "{app}\Asif Mobile Center.exe"
-Name: "{userdesktop}\Asif Mobile Center"; Filename: "{app}\Asif Mobile Center.exe"; Tasks: desktopicon
+Name: "{group}\EasyQist"; Filename: "{app}\EasyQist.exe"
+Name: "{userdesktop}\EasyQist"; Filename: "{app}\EasyQist.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\Asif Mobile Center.exe"; Description: "{cm:LaunchProgram,Asif Mobile Center}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\EasyQist.exe"; Description: "{cm:LaunchProgram,EasyQist}"; Flags: nowait postinstall skipifsilent
